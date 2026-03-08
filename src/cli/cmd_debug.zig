@@ -5,13 +5,13 @@ const std = @import("std");
 pub const command: cmd.Command = .{
     .name = "debug",
     .description = "Debug the Nook CLI",
-    .args = &args,
-    .options = &options,
+    .args = &cmd_args,
+    .options = &cmd_options,
     .callback = run,
 };
 
 /// Args for the debug command
-const args = [_]cmd.Arg{
+const cmd_args = [_]cmd.Arg{
     .{
         .name = "foo",
         .description = "A string argument",
@@ -35,7 +35,7 @@ const args = [_]cmd.Arg{
 };
 
 /// Options for the debug command
-const options = [_]cmd.Option{
+const cmd_options = [_]cmd.Option{
     .{
         .long = "string",
         .short = 's',
@@ -69,6 +69,34 @@ pub fn register(allocator: std.mem.Allocator) !void {
 }
 
 /// Callback for the debug command
-fn run() ?[]const u8 {
+fn run(args: *std.ArrayList(cmd.Value), options: *std.StringHashMapUnmanaged(cmd.Value)) ?[]const u8 {
+    std.debug.print("Got args:\n", .{});
+    for (args.items, 0..) |arg, i| {
+        const end = if (i < args.items.len - 1) ", " else "\n";
+        std.debug.print("{s}=", .{cmd_args[i].name});
+        printValue(arg);
+        std.debug.print("{s}", .{end});
+    }
+
+    std.debug.print("Got options:\n", .{});
+    var it = options.iterator();
+    var i: u32 = 0;
+    while (it.next()) |option| : (i += 1) {
+        const end = if (i < options.size - 1) ", " else "\n";
+        std.debug.print("{s}=", .{option.key_ptr.*});
+        printValue(option.value_ptr.*);
+        std.debug.print("{s}", .{end});
+    }
+
+    if (args.items[2].flag) return "Something went wrong";
     return null;
+}
+
+fn printValue(value: cmd.Value) void {
+    switch (value) {
+        .string => |v| std.debug.print("{s}", .{v}),
+        .int => |v| std.debug.print("{d}", .{v}),
+        .flag => |v| std.debug.print("{any}", .{v}),
+        .float => |v| std.debug.print("{d}", .{v}),
+    }
 }

@@ -19,7 +19,7 @@ pub const Command = struct {
     description: []const u8,
     args: ?[]const Arg = null,
     options: ?[]const Option = null,
-    callback: *const fn () ?[]const u8,
+    callback: *const fn (args: *std.ArrayList(Value), options: *std.StringHashMapUnmanaged(Value)) ?[]const u8,
 
     /// Print the Command's help string
     pub fn help(self: Command) void {
@@ -105,10 +105,11 @@ pub const Arg = struct {
             std.debug.print(" ", .{});
         }
 
-        std.debug.print("{s}{s}{s}\n", .{
+        std.debug.print("{s}{s}{s} ({s})\n", .{
             log.DIM,
             self.description,
             log.RESET,
+            @tagName(self.data_type),
         });
     }
 };
@@ -155,7 +156,7 @@ pub const DataType = enum {
 };
 
 /// Represents the literal value of a command argument
-pub const Value = union {
+pub const Value = union(enum) {
     string: []const u8,
     int: i64,
     float: f64,

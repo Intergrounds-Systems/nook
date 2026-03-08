@@ -16,7 +16,7 @@ pub fn register(allocator: std.mem.Allocator) !void {
 }
 
 /// Callback for the help command
-fn run() ?[]const u8 {
+fn run(_: *std.ArrayList(cmd.Value), _: *std.StringHashMapUnmanaged(cmd.Value)) ?[]const u8 {
     // Nook intro
     std.debug.print("{s}\n\n", .{meta.description});
 

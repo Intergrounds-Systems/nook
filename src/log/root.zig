@@ -10,13 +10,22 @@ pub const BOLD = "\x1b[1m";
 pub const DIM = "\x1b[2m";
 pub const RESET = "\x1b[0m";
 
-/// Logs a message at the success level
+/// Whether verbose logging is enabled (allows debug logs)
+var verbose = false;
+
+/// Sets the verbose flag
+pub fn setVerbose(v: bool) void {
+    verbose = v;
+}
+
+/// Logs a message at the success leveloptions.contains(option_verbose.long)
 pub fn success(comptime fmt: []const u8, args: anytype) void {
     std.log.info(GREEN ++ BOLD ++ fmt ++ RESET, args);
 }
 
 /// Logs a message at the debug level
 pub fn debug(comptime fmt: []const u8, args: anytype) void {
+    if (!verbose) return;
     std.log.debug(BLUE ++ fmt ++ RESET, args);
 }
 

@@ -32,8 +32,8 @@ pub fn build(b: *std.Build) void {
     const log_mod = b.createModule(.{
         .root_source_file = b.path("src/log/root.zig"),
     });
-    const project_mod = b.createModule(.{
-        .root_source_file = b.path("src/project/root.zig"),
+    const module_mod = b.createModule(.{
+        .root_source_file = b.path("src/module/root.zig"),
     });
     const util_mod = b.createModule(.{
         .root_source_file = b.path("src/util/root.zig"),
@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) void {
     // Configure internal module imports
     cli_mod.addImport("core", core_mod);
     cli_mod.addImport("log", log_mod);
-    cli_mod.addImport("project", project_mod);
+    cli_mod.addImport("module", module_mod);
     cli_mod.addImport("util", util_mod);
     cli_mod.addOptions("meta", meta);
 

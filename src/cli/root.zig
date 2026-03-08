@@ -9,7 +9,10 @@ const cmd_init = @import("cmd_init.zig");
 const cmd_version = @import("cmd_version.zig");
 
 /// CLI parsing errors
-const ParseError = error{ InvalidValue, MalformedOption };
+const ParseError = error{
+    InvalidValue,
+    MalformedOption,
+};
 
 /// Parse and handle command line arguments
 pub fn handle(allocator: std.mem.Allocator) !u8 {
@@ -67,36 +70,39 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
                 return 1;
             }
 
+            // Attempt to parse the argument, fail gracefully if we can't
             const cmd_arg = cmd_args[count];
-            const value = try parseArg(arg, cmd_arg.data_type);
+            const value = parseArg(arg, cmd_arg.data_type) catch return 1;
             try pos_args.append(allocator, value);
             continue;
         }
 
         // Optional arg; check if we recognize it
         var maybe_option: ?cmd.Option = null;
+        const key = arg[0 .. std.mem.indexOfScalar(u8, arg, '=') orelse arg.len];
         for (cmd_options) |option| {
 
             // Check for matching short identifier
             if (option.short != '\u{0}' and
-                arg.len == 2 and
-                arg[0] == '-' and
-                arg[1] == option.short)
+                key.len == 2 and
+                key[0] == '-' and
+                key[1] == option.short)
             {
                 maybe_option = option;
                 break;
             }
 
             // Check for matching long identifier
-            if (!std.mem.startsWith(u8, arg, "--")) continue;
-            if (std.mem.eql(u8, option.long, std.mem.trimStart(u8, arg, "--"))) {
+            if (!std.mem.startsWith(u8, key, "--")) continue;
+            if (std.mem.eql(u8, option.long, std.mem.trimStart(u8, key, "--"))) {
                 maybe_option = option;
                 break;
             }
         }
 
+        // Attempt to parse the option, fail gracefully if we can't
         if (maybe_option) |option| {
-            const value = try parseOption(arg, option.data_type);
+            const value = parseOption(arg, option.data_type) catch return 1;
             try opt_args.put(allocator, option.long, value);
             continue;
         }
@@ -122,8 +128,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
     }
 
     // Execute command
-    // TODO: pass in args and options
-    if (command.callback()) |msg| {
+    if (command.callback(&pos_args, &opt_args)) |msg| {
         log.err("{s}", .{msg});
         return 1;
     }
@@ -132,7 +137,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
 }
 
 /// Parse a positional arg string into its value
-fn parseArg(arg: []const u8, data_type: cmd.DataType) !cmd.Value {
+fn parseArg(arg: []const u8, data_type: cmd.DataType) ParseError!cmd.Value {
     switch (data_type) {
         .string => return cmd.Value{ .string = arg },
         .int => return cmd.Value{ .int = try parseInt(arg) },
@@ -165,7 +170,7 @@ fn parseOption(option: []const u8, data_type: cmd.DataType) ParseError!cmd.Value
         }
     }
     if (pivot == 0 or pivot == option.len - 1) {
-        log.err("Malformed option '{s}'; expected form --name=value", .{option});
+        log.err("Malformed option '{s}'; expected form '--name=value'", .{option});
         return ParseError.MalformedOption;
     }
 
