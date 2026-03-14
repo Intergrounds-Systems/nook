@@ -10,10 +10,10 @@ pub const ModuleError = error{
 
 /// Represents a Nook module (project)
 pub const Module = struct {
-    name: []const u8,
-    version: []const u8,
-    hash: []const u8,
-    nook_version: []const u8,
+    name: []const u8 = "",
+    version: []const u8 = "",
+    hash: []const u8 = "",
+    nook_version: []const u8 = "",
 
     /// Write the module file to the disk
     fn write(self: Module, file: *const std.fs.File) !void {
@@ -28,11 +28,7 @@ pub const Module = struct {
 };
 
 /// Create a new module in the current directory
-pub fn init(nook_version: []const u8) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
+pub fn init(allocator: std.mem.Allocator, nook_version: []const u8) !void {
     var dir = try std.fs.cwd().openDir(".", .{ .iterate = true });
     defer dir.close();
 
@@ -61,6 +57,47 @@ pub fn init(nook_version: []const u8) !void {
 }
 
 /// Load an existing module file
-pub fn load(_: std.mem.Allocator, _: []const u8) ModuleError!Module {
-    
+pub fn load(allocator: std.mem.Allocator) !Module {
+    var dir = try std.fs.cwd().openDir(".", .{ .iterate = true });
+    defer dir.close();
+
+    // Look for the module file
+    var it = dir.iterate();
+    var maybe_entry: ?std.fs.Dir.Entry = null;
+    while (try it.next()) |entry| 
+        if (std.mem.eql(u8, entry.name, MODULE_FILE)) {
+            maybe_entry = entry;
+            break;
+        };
+
+    // Open the file
+    const entry = maybe_entry orelse return ModuleError.DoesNotExist;
+    const file = try std.fs.cwd().openFile(entry.name, .{});
+    defer file.close();
+
+    // Create the Module and buffer for the file contents
+    var mod: Module = .{};
+    var buffer: [4069]u8 = undefined;
+    var reader = file.reader(&buffer);
+ 
+    // Read the file line by line to parse the module info
+    while (try reader.interface.takeDelimiter('\n')) |line| {
+        const i = std.mem.indexOf(u8, line, ": ") orelse continue;
+        if (i >= line.len - 2) continue;
+
+        const key = line[0..i];
+        const value = try allocator.dupe(u8, line[i+2..]);
+
+        if (std.mem.eql(u8, key, "name")) {
+            mod.name = value;
+        } else if (std.mem.eql(u8, key, "version")) {
+            mod.version = value;
+        } else if (std.mem.eql(u8, key, "hash")) {
+            mod.hash = value;
+        } else if (std.mem.eql(u8, key, "nook_version")) {
+            mod.nook_version = value;
+        }
+    }
+
+    return mod;
 }

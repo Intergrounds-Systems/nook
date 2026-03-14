@@ -1,0 +1,35 @@
+pkg main
+
+// A struct representing a person
+struct Person {
+
+    var name: str;
+    var age: byte;
+    var is_doctor: bool;
+
+    mtd set_name(name: str) {
+        .name = name;
+    }
+
+    mtd get_title() -> str {
+        var title = .name;
+
+        if .is_doctor {
+            title = "Dr. " + title;
+        }
+
+        return title;
+    }
+}
+
+// The entrypoint
+static main() {
+    var dave = Person {
+        name: "Dave",
+        age: 43,
+        is_doctor: true,
+    };
+
+    dave.set_name("Dave Yognaught");
+}
+

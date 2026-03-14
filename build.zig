@@ -53,6 +53,7 @@ pub fn build(b: *std.Build) void {
     cli_mod.addImport("util", util_mod);
     cli_mod.addOptions("meta", meta);
 
+    core_mod.addImport("log", log_mod);
     log_mod.addImport("util", util_mod);
     exe.root_module.addImport("cli", cli_mod);
 

@@ -18,9 +18,14 @@ pub fn setVerbose(v: bool) void {
     verbose = v;
 }
 
-/// Logs a message at the success leveloptions.contains(option_verbose.long)
+/// Logs a message at the info level
+pub fn info(comptime fmt: []const u8, args: anytype) void {
+    std.log.info(" " ++ BLUE ++ fmt ++ RESET, args);
+}
+
+/// Logs a message at the success level
 pub fn success(comptime fmt: []const u8, args: anytype) void {
-    std.log.info(GREEN ++ BOLD ++ fmt ++ RESET, args);
+    std.log.info(" " ++ GREEN ++ BOLD ++ fmt ++ RESET, args);
 }
 
 /// Logs a message at the debug level
@@ -31,7 +36,7 @@ pub fn debug(comptime fmt: []const u8, args: anytype) void {
 
 /// Logs a message at the warning level
 pub fn warn(comptime fmt: []const u8, args: anytype) void {
-    std.log.warn(YELLOW ++ fmt ++ RESET, args);
+    std.log.warn(" " ++ YELLOW ++ fmt ++ RESET, args);
 }
 
 /// Logs a message at the error level

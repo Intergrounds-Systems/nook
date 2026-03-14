@@ -20,8 +20,8 @@ pub fn register(allocator: std.mem.Allocator) !void {
 }
 
 /// Callback for the init command
-fn run(_: *std.ArrayList(cmd.Value), _: *std.StringHashMapUnmanaged(cmd.Value)) ?[]const u8 {
-    module.init(meta.version) catch |err| {
+fn run(allocator: std.mem.Allocator) ?[]const u8 {
+    module.init(allocator, meta.version) catch |err| {
         return switch (err) {
             module.ModuleError.AlreadyExists => "A module already exists in this directory",
             else => @errorName(err),

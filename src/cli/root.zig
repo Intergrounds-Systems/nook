@@ -3,7 +3,6 @@ const log = @import("log");
 const std = @import("std");
 
 const cmd_build = @import("cmd_build.zig");
-const cmd_debug = @import("cmd_debug.zig");
 const cmd_help = @import("cmd_help.zig");
 const cmd_init = @import("cmd_init.zig");
 const cmd_version = @import("cmd_version.zig");
@@ -16,10 +15,12 @@ const ParseError = error{
 
 /// Parse and handle command line arguments
 pub fn handle(allocator: std.mem.Allocator) !u8 {
-    // Register commands
     defer cmd.commands.deinit(allocator);
+    defer cmd.cmd_args.deinit(allocator);
+    defer cmd.cmd_options.deinit(allocator);
+
+    // Register commands
     try cmd_build.register(allocator);
-    try cmd_debug.register(allocator);
     try cmd_help.register(allocator);
     try cmd_init.register(allocator);
     try cmd_version.register(allocator);
@@ -48,12 +49,6 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
         return 1;
     };
 
-    // Collect positional and optional arguments
-    var pos_args: std.ArrayList(cmd.Value) = .empty;
-    defer pos_args.deinit(allocator);
-    var opt_args: std.StringHashMapUnmanaged(cmd.Value) = .empty;
-    defer opt_args.deinit(allocator);
-
     // Null-coalesce this command's supported arguments
     const cmd_args = command.args orelse &[_]cmd.Arg{};
     const cmd_options = command.options orelse &[_]cmd.Option{};
@@ -64,7 +59,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
 
         // Positional arg; check if we require more
         if (arg[0] != '-') {
-            const count = pos_args.items.len;
+            const count = cmd.cmd_args.items.len;
             if (count == cmd_args.len) {
                 log.err("Extra argument provided: '{s}'", .{arg});
                 return 1;
@@ -73,7 +68,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
             // Attempt to parse the argument, fail gracefully if we can't
             const cmd_arg = cmd_args[count];
             const value = parseArg(arg, cmd_arg.data_type) catch return 1;
-            try pos_args.append(allocator, value);
+            try cmd.cmd_args.append(allocator, value);
             continue;
         }
 
@@ -103,7 +98,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
         // Attempt to parse the option, fail gracefully if we can't
         if (maybe_option) |option| {
             const value = parseOption(arg, option.data_type) catch return 1;
-            try opt_args.put(allocator, option.long, value);
+            try cmd.cmd_options.put(allocator, option.long, value);
             continue;
         }
 
@@ -112,7 +107,7 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
     }
 
     // Help option takes precedence
-    var it = opt_args.iterator();
+    var it = cmd.cmd_options.iterator();
     while (it.next()) |option| {
         if (!std.mem.eql(u8, option.key_ptr.*, cmd.help_option.long)) continue;
         command.help();
@@ -120,15 +115,15 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
     }
 
     // Check for missing positional arguments
-    if (pos_args.items.len < cmd_args.len) {
-        for (cmd_args[pos_args.items.len..]) |arg| {
+    if (cmd.cmd_args.items.len < cmd_args.len) {
+        for (cmd_args[cmd.cmd_args.items.len..]) |arg| {
             log.err("Missing required argument: '{s}'", .{arg.name});
         }
         return 1;
     }
 
     // Execute command
-    if (command.callback(&pos_args, &opt_args)) |msg| {
+    if (command.callback(allocator)) |msg| {
         log.err("{s}", .{msg});
         return 1;
     }

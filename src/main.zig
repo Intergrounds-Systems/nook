@@ -3,12 +3,9 @@ const std = @import("std");
 
 /// Nook toolchain CLI entry point
 pub fn main() !u8 {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const leaked = gpa.deinit();
-        std.debug.assert(leaked == .ok);
-    }
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
 
-    const exit_code = try cli.handle(gpa.allocator());
+    const exit_code = try cli.handle(arena.allocator());
     return exit_code;
 }

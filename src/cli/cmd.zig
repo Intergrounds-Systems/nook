@@ -2,8 +2,14 @@ const log = @import("log");
 const meta = @import("meta");
 const std = @import("std");
 
-// The command registry
+/// The command registry
 pub var commands: std.ArrayList(Command) = .empty;
+
+/// Parsed args registry
+pub var cmd_args: std.ArrayList(Value) = .empty;
+
+/// Parsed options registry
+pub var cmd_options: std.StringHashMapUnmanaged(Value) = .empty;
 
 /// Global options
 pub const help_option: Option = .{
@@ -19,7 +25,7 @@ pub const Command = struct {
     description: []const u8,
     args: ?[]const Arg = null,
     options: ?[]const Option = null,
-    callback: *const fn (args: *std.ArrayList(Value), options: *std.StringHashMapUnmanaged(Value)) ?[]const u8,
+    callback: *const fn (allocator: std.mem.Allocator) ?[]const u8,
 
     /// Print the Command's help string
     pub fn help(self: Command) void {
