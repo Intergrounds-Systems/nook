@@ -1,5 +1,6 @@
-/// Tokenize source code
-pub fn tokenize() void {}
+const parser = @import("parser.zig");
+const tokenizer = @import("tokenizer.zig");
 
-/// Parse tokens
-pub fn parse() void {}
+pub const tokenize = tokenizer.tokenize;
+pub const parse = parser.parse;
+

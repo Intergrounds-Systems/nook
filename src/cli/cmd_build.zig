@@ -59,7 +59,7 @@ fn run(allocator: std.mem.Allocator) ?[]const u8 {
     });
 
     // Start the build
-    core.build("main.nk") catch |err| {
+    core.build(allocator, "main.nk") catch |err| {
         const msg = "Could not build module";
         return std.fmt.allocPrint(allocator, msg ++ ": {any}", .{err}) catch msg;
     };
