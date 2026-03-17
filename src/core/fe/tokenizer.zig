@@ -6,12 +6,12 @@ const TokenizerError = error{ NoSourceCode, SyntaxError };
 
 /// Tokenize the input source code
 pub fn tokenize(allocator: std.mem.Allocator, source_code: []const u8) ![]Token {
-    var tokenizer = Tokenizer.init(allocator, source_code);
+    var tokenizer = Tokenizer.init(source_code);
     var tokens: std.ArrayList(Token) = .empty;
     var token: Token = undefined;
 
     // Scan tokens
-    while (token.token_type != .EOF) : (try tokens.append(allocator, token))
+    while (token.token_type != .eof) : (try tokens.append(allocator, token))
         token = tokenizer.nextToken();
 
     // Report errors
@@ -63,105 +63,104 @@ pub const Token = struct {
 /// The type of a token
 pub const TokenType = enum {
     // Single-char tokens
-    Hash,         // #
-    Dollar,       // $
-    LeftParen,    // (
-    RightParen,   // )
-    LeftBracket,  // [
-    RightBracket, // ]
-    LeftBrace,    // {
-    RightBrace,   // }
-    Comma,        // ,
-    Question,     // ?
-    Underscore,   // _
-    Semicolon,    // ;
-    Dot,          // .
+    op_hash,          // #
+    op_dollar,        // $
+    op_left_paren,    // (
+    op_right_paren,   // )
+    op_left_bracket,  // [
+    op_right_bracket, // ]
+    op_left_brace,    // {
+    op_right_brace,   // }
+    op_comma,         // ,
+    op_question,      // ?
+    op_underscore,    // _
+    op_semicolon,     // ;
+    op_dot,           // .
     
     // Single or double-char tokens by initial char
-    Bang,          // !
-    BangEquals,    // !=
-    Percent,       // %
-    PercentEquals, // %=
-    And,           // &
-    AndAnd,        // &&
-    AndEquals,     // &=
-    Star,          // *
-    StarEquals,    // *=
-    Plus,          // +
-    PlusEquals,    // +=
-    Minus,         // -
-    MinusEquals,   // -=
-    RightArrow,    // ->
-    Slash,         // /
-    SlashEquals,   // /=
-    Comment,       // //
-    Colon,         // :
-    ColonColon,    // ::
-    Equals,        // =
-    EqualsEquals,  // ==
-    Caret,         // ^
-    CaretEquals,   // ^=
-    Pipe,          // |
-    PipeEquals,    // |=
-    PipePipe,      // ||
-    Tilde,         // ~
-    TildeEquals,   // ~=
+    op_bang,           // !
+    op_bang_equals,    // !=
+    op_percent,        // %
+    op_percent_equals, // %=
+    op_and,            // &
+    op_and_and,        // &&
+    op_and_equals,     // &=
+    op_star,           // *
+    op_star_equals,    // *=
+    op_plus,           // +
+    op_plus_equals,    // +=
+    op_minus,          // -
+    op_minus_equals,   // -=
+    op_right_arrow,    // ->
+    op_slash,          // /
+    op_slash_equals,   // /=
+    op_comment,        // //
+    op_colon,          // :
+    op_colon_colon,    // ::
+    op_equals,         // =
+    op_equals_equals,  // ==
+    op_caret,          // ^
+    op_caret_equals,   // ^=
+    op_pipe,           // |
+    op_pipe_equals,    // |=
+    op_pipe_pipe,      // ||
+    op_tilde,          // ~
+    op_tilde_equals,   // ~=
 
     // Single, double, or triple-char tokens by initial char
-    LeftAngle,        // <
-    LeftShift,        // <<
-    LessOrEquals,     // <=
-    LeftShiftEquals,  // <<=
-    RightAngle,       // >
-    GreaterOrEquals,  // >=
-    RightShift,       // >>
-    RightShiftEquals, // >>=
+    op_left_angle,         // <
+    op_left_shift,         // <<
+    op_less_or_equals,     // <=
+    op_left_shift_equals,  // <<=
+    op_right_angle,        // >
+    op_greater_or_equals,  // >=
+    op_right_shift,        // >>
+    op_right_shift_equals, // >>=
 
     // Literals
-    Identifier, // begins with a-zA-Z
-    String,     // begins with "
-    Char,       // begins with '
-    Int,        // sequence of only 0-9
-    Float,      // sequence of only 0-9 and exactly 1 non-initial, non-final .
-    True,       // literal 'true'
-    False,      // literal 'false'
-    Void,       // literal 'void'
+    identifier, // begins with a-zA-Z
+    lit_string, // begins with "
+    lit_char,   // begins with '
+    lit_int,    // sequence of only 0-9
+    lit_float,  // sequence of only 0-9 and exactly 1 non-initial, non-final .
+    lit_true,   // literal 'true'
+    lit_false,  // literal 'false'
+    lit_void,   // literal 'void'
 
     // Keywords
     // Flow control
-    If,
-    Else,
-    Eval,
-    Loop,
-    Return,
-    Continue,
-    Break,
+    fc_if,
+    fc_else,
+    fc_eval,
+    fc_loop,
+    fc_return,
+    fc_continue,
+    fc_break,
 
     // Declarations
-    Pkg,
-    Struct,
-    Var,
-    Const,
-    Static,
-    Dyn,
-    Mtd,
-    Own,
-    Ref,
+    decl_pkg,
+    decl_struct,
+    decl_var,
+    decl_const,
+    decl_static,
+    decl_dyn,
+    decl_mtd,
+    decl_own,
+    decl_ref,
 
     // Builtins
-    New,
-    Drop,
-    Copy,
-    Clone,
-    Print,
+    builtin_new,
+    builtin_drop,
+    builtin_copy,
+    builtin_clone,
+    builtin_print,
 
     // Other
-    EOF, // end of file
+    eof, // end of file
 };
 
 /// The tokenizer
 const Tokenizer = struct {
-    allocator: std.mem.Allocator,
     input: []const u8,
     pos: usize = 0,
     next: usize = 0,
@@ -171,19 +170,15 @@ const Tokenizer = struct {
     error_count: u32 = 0,
 
     /// Create a new Tokenizer
-    fn init(allocator: std.mem.Allocator, input: []const u8) Tokenizer {
-        var tokenizer: Tokenizer = .{
-            .allocator = allocator,
-            .input = input,
-        };
-
+    fn init(input: []const u8) Tokenizer {
+        var tokenizer: Tokenizer = .{.input = input};
         tokenizer.readChar();
         return tokenizer;
     }
 
     /// Get the next Token
     fn nextToken(self: *Tokenizer) Token {
-        const empty_token = Token.init("", .EOF, self.line, self.col);
+        const empty_token = Token.init("", .eof, self.line, self.col);
         self.skipWhitespace();
 
         // Reached end of input, return the empty token
@@ -208,7 +203,7 @@ const Tokenizer = struct {
         if (isQuote(self.cur)) return self.readQuote();
 
         // Scanning an operator
-        if (parseOp(&[_]u8{self.cur})) |op| return self.readOperator(op);
+        if (operator_token_types.get(&[_]u8{self.cur})) |op| return self.readOperator(op);
 
         // Scanned an unrecognized token
         log.err("Unrecognized character '{}' on line {} col {}", .{
@@ -226,7 +221,7 @@ const Tokenizer = struct {
     fn createToken(self: Tokenizer, token_type: TokenType, value: []const u8) Token {
         // If we're creating a token enclosed in quotes, subtract the quote positions from the token's location
         var col_offs: u32 = @intCast(value.len);
-        if (token_type == .String or token_type == .Char) col_offs += 2;
+        if (token_type == .lit_string or token_type == .lit_char) col_offs += 2;
 
         return Token.init(value, token_type, self.line, self.col - col_offs);
     }
@@ -260,20 +255,20 @@ const Tokenizer = struct {
         while (isAlnum(self.cur)) self.readChar();
 
         const buffer = self.input[start..self.pos];
-        return self.createToken(parseKeyword(buffer), buffer);
+        return self.createToken(keyword_token_types.get(buffer) orelse .identifier, buffer);
     }
 
     /// Read a number
     fn readNumber(self: *Tokenizer) Token {
         const start = self.pos;
-        var token_type: TokenType = .Int;
+        var token_type: TokenType = .lit_int;
 
         while (isDigit(self.cur)) {
             self.readChar();
 
             // If we encounter a dot, we should only keep reading if the follow char is a digit
             if (self.cur == '.' and self.next < self.input.len and isDigit(self.input[self.next])) {
-                token_type = .Float;
+                token_type = .lit_float;
                 self.readChar();
             }
         }
@@ -287,7 +282,7 @@ const Tokenizer = struct {
         const quote = self.cur;
         const line = self.line;
         const col = self.col;
-        const token_type: TokenType = if (quote == '\'') .Char else .String;
+        const token_type: TokenType = if (quote == '\'') .lit_char else .lit_string;
 
         self.readChar();
         const start = self.pos;
@@ -354,7 +349,7 @@ const Tokenizer = struct {
             if (self.pos + offs <= self.input.len) {
                 const op = self.input[self.pos..self.pos + offs];
 
-                if (parseOp(op)) |op_type| {
+                if (operator_token_types.get(op)) |op_type| {
                     token_type = op_type;
                     buffer = op;
                     to_scan += offs;
@@ -367,7 +362,7 @@ const Tokenizer = struct {
         for (0..to_scan) |_| self.readChar();
 
         // If this operator was the comment opener, read the comment
-        if (token_type == .Comment) {
+        if (token_type == .op_comment) {
             const start = self.pos;
             while (self.cur != '\n' and self.cur != 0) self.readChar();
             buffer = self.input[start..self.pos];
@@ -381,42 +376,42 @@ const Tokenizer = struct {
 // --------------
 
 /// Utility function to tell us if a char is whitespace
-fn isWhitespace(c: u8) bool {
-    return c == ' ' or c == '\n' or c == '\r' or c == '\t';
+fn isWhitespace(char: u8) bool {
+    return char == ' ' or char == '\n' or char == '\r' or char == '\t';
 }
 
 /// Utility function to tell us if a char is a letter
-fn isLetter(c: u8) bool {
-    return ('a' <= c and c <= 'z') or ('A' <= c and c <= 'Z');
+fn isLetter(char: u8) bool {
+    return ('a' <= char and char <= 'z') or ('A' <= char and char <= 'Z');
 }
 
 /// Utility function to tell us if a char is a digit
-fn isDigit(c: u8) bool {
-    return '0' <= c and c <= '9';
+fn isDigit(char: u8) bool {
+    return '0' <= char and char <= '9';
 }
 
 /// Utility function to tell us if a char is alphanumeric (including underscores)
-fn isAlnum(c: u8) bool {
-    return c == '_' or isLetter(c) or isDigit(c);
+fn isAlnum(char: u8) bool {
+    return char == '_' or isLetter(char) or isDigit(char);
 }
 
 /// Utility function to tell us if a char is a quotation mark
-fn isQuote(c: u8) bool {
-    return c == '"' or c == '`' or c == '\'';
+fn isQuote(char: u8) bool {
+    return char == '"' or char == '`' or char == '\'';
 }
 
 /// Utility function to tell us if a string is a valid char literal
-fn isValidChar(c: []const u8) bool {
-    if (c.len == 1 and !isUnescapedChar(c)) return true;
-    return isValidUnicodePoint(c) or isValidEscapedChar(c);
+fn isValidChar(lit: []const u8) bool {
+    if (lit.len == 1 and unescaped_chars.get(lit) == null) return true;
+    return isValidUnicodePoint(lit) or valid_escaped_chars.get(lit) != null;
 }
 
 /// Utility function to tell us if a literal is a valid unicode point
-fn isValidUnicodePoint(u: []const u8) bool {
-    if (!std.mem.startsWith(u8, u, "\\u") or u.len == 2 or u.len > 10) return false;
+fn isValidUnicodePoint(lit: []const u8) bool {
+    if (!std.mem.startsWith(u8, lit, "\\u") or lit.len == 2 or lit.len > 10) return false;
 
     // Each digit past the first 2 must be a valid hexadecimal digit
-    for (u[2..]) |char| {
+    for (lit[2..]) |char| {
         if (!(
                 (char >= '0' and char <= '9') or
                 (char >= 'A' and char <= 'F') or
@@ -428,118 +423,118 @@ fn isValidUnicodePoint(u: []const u8) bool {
     return true;
 }
 
-/// Utility function to tell us if a literal is a valid escape sequence
-fn isValidEscapedChar(e: []const u8) bool {
-    return std.mem.eql(u8, e, "\\\\") or // Backslash
-        std.mem.eql(u8, e, "\\a") or     // Alert
-        std.mem.eql(u8, e, "\\b") or     // Backspace
-        std.mem.eql(u8, e, "\\f") or     // Page break (form feed)
-        std.mem.eql(u8, e, "\\n") or     // Newline (line feed)
-        std.mem.eql(u8, e, "\\r") or     // Carriage return
-        std.mem.eql(u8, e, "\\t") or     // Horizontal tab
-        std.mem.eql(u8, e, "\\v") or     // Vertical tab
-        std.mem.eql(u8, e, "\\'") or     // Single quote
-        std.mem.eql(u8, e, "\\0");       // Null char
-}
+// Lookup Tables
+// -------------------------------------------------
 
-/// Utility function to tell us if a literal is an unescaped char
-fn isUnescapedChar(c: []const u8) bool {
-    return std.mem.eql(u8, c, "\\") or // Backslash
-        std.mem.eql(u8, c, "\n") or    // Newline (line feed)
-        std.mem.eql(u8, c, "\r") or    // Carriage return
-        std.mem.eql(u8, c, "\t") or    // Horizontal tab
-        std.mem.eql(u8, c, "\'");      // Single quote
-}
+/// Valid string literal representations of escaped characters
+const valid_escaped_chars = std.StaticStringMap(void).initComptime(.{
+    .{ "\\\\", {} }, // Backslash
+    .{ "\\a",  {} }, // Alert
+    .{ "\\b",  {} }, // Backspace
+    .{ "\\f",  {} }, // Page break (form feed)
+    .{ "\\n",  {} }, // Newline (line feed)
+    .{ "\\r",  {} }, // Carriage return
+    .{ "\\t",  {} }, // Horizontal tab
+    .{ "\\v",  {} }, // Vertical tab
+    .{ "\\'",  {} }, // Single quote
+    .{ "\\0",  {} }, // Null char
+});
 
-/// Parse the string representation of an operator into its TokenType, if applicable
-fn parseOp(op: []const u8) ?TokenType {
+/// Literal escaped characters
+const unescaped_chars = std.StaticStringMap(void).initComptime(.{
+    .{ "\\", {} }, // Backslash
+    .{ "\n", {} }, // Newline (line feed)
+    .{ "\r", {} }, // Carriage return
+    .{ "\t", {} }, // Horizontal tab
+    .{ "\'", {} }, // Single quote
+});
+
+/// Operator token types
+const operator_token_types = std.StaticStringMap(TokenType).initComptime(.{
     // Single char
-    if (std.mem.eql(u8, op, "#")) return .Hash;
-    if (std.mem.eql(u8, op, "$")) return .Dollar;
-    if (std.mem.eql(u8, op, "(")) return .LeftParen;
-    if (std.mem.eql(u8, op, ")")) return .RightParen;
-    if (std.mem.eql(u8, op, "[")) return .LeftBracket;
-    if (std.mem.eql(u8, op, "]")) return .RightBracket;
-    if (std.mem.eql(u8, op, "{")) return .LeftBrace;
-    if (std.mem.eql(u8, op, "}")) return .RightBrace;
-    if (std.mem.eql(u8, op, ",")) return .Comma;
-    if (std.mem.eql(u8, op, "?")) return .Question;
-    if (std.mem.eql(u8, op, "_")) return .Underscore;
-    if (std.mem.eql(u8, op, ";")) return .Semicolon;
-    if (std.mem.eql(u8, op, ".")) return .Dot;
+    .{ "#", .op_hash          },
+    .{ "$", .op_dollar        },
+    .{ "(", .op_left_paren    },
+    .{ ")", .op_right_paren   },
+    .{ "[", .op_left_bracket  },
+    .{ "]", .op_right_bracket },
+    .{ "{", .op_left_brace    },
+    .{ "}", .op_right_brace   },
+    .{ ",", .op_comma         },
+    .{ "?", .op_question      },
+    .{ "_", .op_underscore    },
+    .{ ";", .op_semicolon     },
+    .{ ".", .op_dot           },
 
     // Single and double-char
-    if (std.mem.eql(u8, op, "~=")) return .TildeEquals;
-    if (std.mem.eql(u8, op, "~")) return .Tilde;
-    if (std.mem.eql(u8, op, "|=")) return .PipeEquals;
-    if (std.mem.eql(u8, op, "||")) return .PipePipe;
-    if (std.mem.eql(u8, op, "|")) return .Pipe;
-    if (std.mem.eql(u8, op, "^=")) return .CaretEquals;
-    if (std.mem.eql(u8, op, "^")) return .Caret;
-    if (std.mem.eql(u8, op, "==")) return .EqualsEquals;
-    if (std.mem.eql(u8, op, "=")) return .Equals;
-    if (std.mem.eql(u8, op, "::")) return .ColonColon;
-    if (std.mem.eql(u8, op, ":")) return .Colon;
-    if (std.mem.eql(u8, op, "/=")) return .SlashEquals;
-    if (std.mem.eql(u8, op, "/")) return .Slash;
-    if (std.mem.eql(u8, op, "//")) return .Comment;
-    if (std.mem.eql(u8, op, "->")) return .RightArrow;
-    if (std.mem.eql(u8, op, "-=")) return .MinusEquals;
-    if (std.mem.eql(u8, op, "-")) return .Minus;
-    if (std.mem.eql(u8, op, "+=")) return .PlusEquals;
-    if (std.mem.eql(u8, op, "+")) return .Plus;
-    if (std.mem.eql(u8, op, "*=")) return .StarEquals;
-    if (std.mem.eql(u8, op, "*")) return .Star;
-    if (std.mem.eql(u8, op, "&=")) return .AndEquals;
-    if (std.mem.eql(u8, op, "&&")) return .AndAnd;
-    if (std.mem.eql(u8, op, "&")) return .And;
-    if (std.mem.eql(u8, op, "%=")) return .PercentEquals;
-    if (std.mem.eql(u8, op, "%")) return .Percent;
-    if (std.mem.eql(u8, op, "!=")) return .BangEquals;
-    if (std.mem.eql(u8, op, "!")) return .Bang;
+    .{ "~=", .op_tilde_equals   },
+    .{ "~",  .op_tilde          },
+    .{ "|=", .op_pipe_equals    },
+    .{ "||", .op_pipe_pipe      },
+    .{ "|",  .op_pipe           },
+    .{ "^=", .op_caret_equals   },
+    .{ "^",  .op_caret          },
+    .{ "==", .op_equals_equals  },
+    .{ "=",  .op_equals         },
+    .{ "::", .op_colon_colon    },
+    .{ ":",  .op_colon          },
+    .{ "/=", .op_slash_equals   },
+    .{ "/",  .op_slash          },
+    .{ "//", .op_comment        },
+    .{ "->", .op_right_arrow    },
+    .{ "-=", .op_minus_equals   },
+    .{ "-",  .op_minus          },
+    .{ "+=", .op_plus_equals    },
+    .{ "+",  .op_plus           },
+    .{ "*=", .op_star_equals    },
+    .{ "*",  .op_star           },
+    .{ "&=", .op_and_equals     },
+    .{ "&&", .op_and_and        },
+    .{ "&",  .op_and            },
+    .{ "%=", .op_percent_equals },
+    .{ "%",  .op_percent        },
+    .{ "!=", .op_bang_equals    },
+    .{ "!",  .op_bang           },
 
     // Single, double and triple-char
-    if (std.mem.eql(u8, op, "<<=")) return .LeftShiftEquals;
-    if (std.mem.eql(u8, op, "<<")) return .LeftShift;
-    if (std.mem.eql(u8, op, "<=")) return .LessOrEquals;
-    if (std.mem.eql(u8, op, "<")) return .LeftAngle;
-    if (std.mem.eql(u8, op, ">>=")) return .RightShiftEquals;
-    if (std.mem.eql(u8, op, ">>")) return .RightShift;
-    if (std.mem.eql(u8, op, ">=")) return .GreaterOrEquals;
-    if (std.mem.eql(u8, op, ">")) return .RightAngle;
+    .{ "<<=", .op_left_shift_equals  },
+    .{ "<<",  .op_left_shift         },
+    .{ "<=",  .op_less_or_equals     },
+    .{ "<",   .op_left_angle         },
+    .{ ">>=", .op_right_shift_equals },
+    .{ ">>",  .op_right_shift        },
+    .{ ">=",  .op_greater_or_equals  },
+    .{ ">",   .op_right_angle        },
+});
 
-    return null;
-}
 
-/// Parse the string representation of a keywork into its TokenType, if applicable
-fn parseKeyword(kw: []const u8) TokenType {
+/// Keyword token types
+const keyword_token_types = std.StaticStringMap(TokenType).initComptime(.{
     // Control flow
-    if (std.mem.eql(u8, kw, "if")) return .If;
-    if (std.mem.eql(u8, kw, "else")) return .Else;
-    if (std.mem.eql(u8, kw, "eval")) return .Eval;
-    if (std.mem.eql(u8, kw, "loop")) return .Loop;
-    if (std.mem.eql(u8, kw, "return")) return .Return;
-    if (std.mem.eql(u8, kw, "continue")) return .Continue;
-    if (std.mem.eql(u8, kw, "break")) return .Break;
+    .{ "if",       .fc_if       },
+    .{ "else",     .fc_else     },
+    .{ "eval",     .fc_eval     },
+    .{ "loop",     .fc_loop     },
+    .{ "return",   .fc_return   },
+    .{ "continue", .fc_continue },
+    .{ "break",    .fc_break    },
 
     // Declaration
-    if (std.mem.eql(u8, kw, "pkg")) return .Pkg;
-    if (std.mem.eql(u8, kw, "struct")) return .Struct;
-    if (std.mem.eql(u8, kw, "var")) return .Var;
-    if (std.mem.eql(u8, kw, "const")) return .Const;
-    if (std.mem.eql(u8, kw, "static")) return .Static;
-    if (std.mem.eql(u8, kw, "dyn")) return .Dyn;
-    if (std.mem.eql(u8, kw, "mtd")) return .Mtd;
-    if (std.mem.eql(u8, kw, "own")) return .Own;
-    if (std.mem.eql(u8, kw, "ref")) return .Ref;
+    .{ "pkg",    .decl_pkg    },
+    .{ "struct", .decl_struct },
+    .{ "var",    .decl_var    },
+    .{ "const",  .decl_const  },
+    .{ "static", .decl_static },
+    .{ "dyn",    .decl_dyn    },
+    .{ "mtd",    .decl_mtd    },
+    .{ "own",    .decl_own    },
+    .{ "ref",    .decl_ref    },
 
     // Builtin
-    if (std.mem.eql(u8, kw, "new")) return .New;
-    if (std.mem.eql(u8, kw, "drop")) return .Drop;
-    if (std.mem.eql(u8, kw, "copy")) return .Copy;
-    if (std.mem.eql(u8, kw, "clone")) return .Clone;
-    if (std.mem.eql(u8, kw, "print")) return .Print ;
-
-    return .Identifier;
-}
+    .{ "new",   .builtin_new   },
+    .{ "drop",  .builtin_drop  },
+    .{ "copy",  .builtin_copy  },
+    .{ "clone", .builtin_clone },
+    .{ "print", .builtin_print },
+});
 
