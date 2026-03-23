@@ -1,0 +1,7 @@
+pkg main
+
+// The entrypoint
+static main() {
+    print("Hello, world!");
+}
+
