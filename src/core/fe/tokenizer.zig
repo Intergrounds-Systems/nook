@@ -4,34 +4,6 @@ const std = @import("std");
 /// Errors that can arise during tokenization
 const TokenizerError = error{ NoSourceCode, SyntaxError };
 
-/// Tokenize the input source code
-pub fn tokenize(allocator: std.mem.Allocator, source_code: []const u8) ![]Token {
-    var tokenizer = Tokenizer.init(source_code);
-    var tokens: std.ArrayList(Token) = .empty;
-    var token: Token = undefined;
-
-    // Scan tokens
-    while (token.token_type != .eof) : (try tokens.append(allocator, token))
-        token = tokenizer.nextToken();
-
-    // Report errors
-    if (tokens.items.len == 0) {
-        log.err("No source code provided", .{});
-        return TokenizerError.NoSourceCode;
-    }
-
-    if (tokenizer.error_count > 0) {
-        const s = if (tokenizer.error_count > 1) "s" else "";
-        log.err("{d} syntax error{s} encountered", .{
-            tokenizer.error_count,
-            s,
-        });
-        return TokenizerError.SyntaxError;
-    }
-    
-    return tokens.items;
-}
-
 /// An individual semantic unit in the source code
 pub const Token = struct {
     value: []const u8,
@@ -160,7 +132,8 @@ pub const TokenType = enum {
 };
 
 /// The tokenizer
-const Tokenizer = struct {
+pub const Tokenizer = struct {
+    allocator: std.mem.Allocator,
     input: []const u8,
     pos: usize = 0,
     next: usize = 0,
@@ -170,10 +143,41 @@ const Tokenizer = struct {
     error_count: u32 = 0,
 
     /// Create a new Tokenizer
-    fn init(input: []const u8) Tokenizer {
-        var tokenizer: Tokenizer = .{.input = input};
+    pub fn init(allocator: std.mem.Allocator, input: []const u8) Tokenizer {
+        var tokenizer: Tokenizer = .{
+            .allocator = allocator,
+            .input = input,
+        };
+        
         tokenizer.readChar();
         return tokenizer;
+    }
+
+    /// Parse the source code into tokens
+    pub fn tokenize(self: *Tokenizer) ![]Token {
+        var tokens: std.ArrayList(Token) = .empty;
+        var token: Token = undefined;
+
+        // Scan tokens
+        while (token.token_type != .eof) : (try tokens.append(self.allocator, token))
+            token = self.nextToken();
+
+        // Report errors
+        if (tokens.items.len == 0) {
+            log.err("No source code provided", .{});
+            return TokenizerError.NoSourceCode;
+        }
+
+        if (self.error_count > 0) {
+            const s = if (self.error_count > 1) "s" else "";
+            log.err("{d} syntax error{s} encountered", .{
+                self.error_count,
+                s,
+            });
+            return TokenizerError.SyntaxError;
+        }
+    
+        return tokens.items;
     }
 
     /// Get the next Token
@@ -511,13 +515,13 @@ const operator_token_types = std.StaticStringMap(TokenType).initComptime(.{
 /// Keyword token types
 const keyword_token_types = std.StaticStringMap(TokenType).initComptime(.{
     // Control flow
-    .{ "if",       .fc_if       },
-    .{ "else",     .fc_else     },
-    .{ "eval",     .fc_eval     },
-    .{ "loop",     .fc_loop     },
-    .{ "return",   .fc_return   },
-    .{ "continue", .fc_continue },
-    .{ "break",    .fc_break    },
+    .{ "if",       .cf_if       },
+    .{ "else",     .cf_else     },
+    .{ "eval",     .cf_eval     },
+    .{ "loop",     .cf_loop     },
+    .{ "return",   .cf_return   },
+    .{ "continue", .cf_continue },
+    .{ "break",    .cf_break    },
 
     // Declaration
     .{ "pkg",    .decl_pkg    },

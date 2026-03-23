@@ -21,7 +21,7 @@ pub fn build(allocator: std.mem.Allocator, path: []const u8) !void {
     const tokens = try fe.tokenize(allocator, source_code[0..n]);
 
     // Report tokens
-    // TODO: Allow dumping this to a file or always dump to file
+    // TODO: Allow dumping this to a file
     log.debug("Tokens:", .{});
     for (tokens) |token| {
         log.debug("{s}", .{token.string(allocator)});
@@ -29,5 +29,5 @@ pub fn build(allocator: std.mem.Allocator, path: []const u8) !void {
 
     // Parse the tokens into an AST
     log.debug("Parsing tokens...", .{});
-    fe.parse(allocator, tokens);
+    _ = try fe.parse(allocator, tokens);
 }

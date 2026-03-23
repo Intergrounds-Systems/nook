@@ -4,14 +4,7 @@ const tokenizer = @import("tokenizer.zig");
 const value = @import("value.zig");
 
 /// Errors that can arise during parsing
-pub const ParserError = error{UnexpectedToken, ExpectedExpression};
-
-/// Parse tokens into an list of statement trees
-/// TODO: Move to root.zig
-pub fn parse(allocator: std.mem.Allocator, tokens: []tokenizer.Token) !std.ArrayList(Stmt) {
-    var parser = Parser.init(allocator, tokens);
-    return parser.parse();
-}
+pub const ParserError = error{UnexpectedToken, ExpectedExpression, ParseFailed};
 
 /// Represents any valid statement in the language
 pub const Stmt = union(enum) {
@@ -95,10 +88,11 @@ pub const Expr = union(enum){
 };
 
 /// The parser
-const Parser = struct {
+pub const Parser = struct {
     allocator: std.mem.Allocator,
     tokens: []tokenizer.Token,
     pos: usize = 0,
+    ok: bool = true,
 
     /// Create a Parser with the given allocator and token stream
     pub fn init(allocator: std.mem.Allocator, tokens: []tokenizer.Token) Parser {
@@ -109,14 +103,14 @@ const Parser = struct {
     }
 
     /// Parse the input token stream into a list of statements
-    pub fn parse(self: *Parser) !std.ArrayList(*Stmt) {
+    pub fn parse(self: *Parser) anyerror!std.ArrayList(*Stmt) {
         var statements: std.ArrayList(*Stmt) = .empty;
         
         while (!self.done())
             if (self.declaration()) |stmt|
                 try statements.append(self.allocator, stmt);
 
-        return statements;
+        return if (self.ok) statements else ParserError.ParseFailed;
     }
 
     // Declaration parsing rules
@@ -124,30 +118,29 @@ const Parser = struct {
 
     /// The declaration rule; lowest precedence, satisfied by any declaration, statement, or expression
     fn declaration(self: *Parser) ?*Stmt {
-        const res = if(self.matches(&[_]tokenizer.TokenType{.decl_var})) {
-            self.varDeclaration();
-        } else {
+        const stmt = if (self.matches(&[_]tokenizer.TokenType{.decl_var}))
+            self.varDeclaration()
+        else
             self.statement();
-        } catch |err| {
+
+        return stmt catch |err| {
             log.err("{any}", .{err});
             self.synchronize();
+            self.ok = false;
             return null;
         };
-
-        return res;
     }
 
     /// The variable declaration rule; satisfied by `IDENTIFIER ( = EXPRESSION ) ;`
     /// TODO: implement type annotations
-    fn varDeclaration(self: *Parser) !*Stmt {
+    fn varDeclaration(self: *Parser) anyerror!*Stmt {
         const identifier = try self.consume(.identifier, "Expected variable identifier");
-        const initializer: ?*Expr = if (self.matches(&[_]tokenizer.TokenType{.op_equals})) {
-            try self.expression();
-        } else {
-            null;
-        };
+        var initializer: ?*Expr = null;
+        if (self.matches(&[_]tokenizer.TokenType{.op_equals})) {
+            initializer = try self.expression();
+        }
 
-        try self.consume(&[_]tokenizer.TokenType{.op_semicolon}, "Expected ';' after variable declaration");
+        _ = try self.consume(.op_semicolon, "Expected ';' after variable declaration");
         const stmt = try self.allocator.create(Stmt);
         stmt.* = .{ .variable = .{
             .identifier = identifier,
@@ -161,7 +154,7 @@ const Parser = struct {
     // -----------------------
 
     /// The statement rule; lowest precedence, satisfied by any statement or expression
-    fn statement(self: *Parser) !*Stmt {
+    fn statement(self: *Parser) anyerror!*Stmt {
         const expr = try self.innerExpression();
         const stmt = try self.allocator.create(Stmt); 
         
@@ -187,9 +180,9 @@ const Parser = struct {
     }
 
     /// The inner expression rule; connects expression-containing statements with expression parsing
-    fn innerExpression(self: *Parser) !*Expr {
+    fn innerExpression(self: *Parser) anyerror!*Expr {
         const expr = try self.expression();
-        try self.consume(.op_semicolon, "Expected ';' after expression");
+        _ = try self.consume(.op_semicolon, "Expected ';' after expression");
     
         return expr;
     }
@@ -198,12 +191,12 @@ const Parser = struct {
     // ------------------------
 
     /// The expression rule; lowest precedence, satisfied by `equality`
-    fn expression(self: *Parser) !*Expr {
+    fn expression(self: *Parser) anyerror!*Expr {
         return self.equality();
     }
 
     /// The equality rule; satisfied by `comparison (( "!=" | "==" ) comparison )*`
-    fn equality(self: *Parser) !*Expr {
+    fn equality(self: *Parser) anyerror!*Expr {
         var expr = try self.comparison();
 
         while (self.matches(&[_]tokenizer.TokenType{
@@ -225,7 +218,7 @@ const Parser = struct {
     }
 
     /// The comparison rule; satisfied by `term (( ">" | ">=" | "<" | "<=" ) term )*`
-    fn comparison(self: *Parser) !*Expr {
+    fn comparison(self: *Parser) anyerror!*Expr {
         var expr = try self.term();
 
         while (self.matches(&[_]tokenizer.TokenType{
@@ -249,7 +242,7 @@ const Parser = struct {
     }
 
     /// The term rule; satisfied by `factor (( "-" | "+" ) factor )*`
-    fn term(self: *Parser) !*Expr {
+    fn term(self: *Parser) anyerror!*Expr {
         var expr = try self.factor();
 
         while (self.matches(&[_]tokenizer.TokenType{
@@ -271,7 +264,7 @@ const Parser = struct {
     }
 
     /// The factor rule; satisfied by `unary (( "/" | "*" ) unary )*`
-    fn factor(self: *Parser) !*Expr {
+    fn factor(self: *Parser) anyerror!*Expr {
         var expr = try self.unary();
 
         while (self.matches(&[_]tokenizer.TokenType{
@@ -293,7 +286,7 @@ const Parser = struct {
     }
 
     /// The unary rule; satisfied by `("!" | "-") unary | primary`
-    fn unary(self: *Parser) !*Expr {
+    fn unary(self: *Parser) anyerror!*Expr {
         if (self.matches(&[_]tokenizer.TokenType{
             .op_bang,
             .op_minus,
@@ -313,7 +306,7 @@ const Parser = struct {
     }
 
     /// The primary rule; satisfied by `NUMBER | STRING | "true" | "false" | "nil" | "(" expr ")" | IDENTIFIER`
-    fn primary(self: *Parser) !*Expr {
+    fn primary(self: *Parser) anyerror!*Expr {
         // Integer
         if (self.matches(&[_]tokenizer.TokenType{.lit_int})) {
             const int_val = try std.fmt.parseInt(i64, self.previous().value, 10);
@@ -343,7 +336,7 @@ const Parser = struct {
 
         // String
         if (self.matches(&[_]tokenizer.TokenType{.lit_str})) {
-            const str_val = self.previous();
+            const str_val = self.previous().value;
             const expr = try self.allocator.create(Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_str = str_val }}};
         
@@ -362,7 +355,7 @@ const Parser = struct {
         // Identifier
         if (self.matches(&[_]tokenizer.TokenType{.identifier})) {
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .variable = .{ .name = self.previous().value }};
+            expr.* = .{ .variable = .{ .name = self.previous() }};
 
             return expr;
         }
@@ -370,7 +363,7 @@ const Parser = struct {
         // Expression grouping
         if (self.matches(&[_]tokenizer.TokenType{.op_left_paren})) {
             const expr = try self.expression();
-            try self.consume(.op_right_paren, "Expected ')' after expression");
+            _ = try self.consume(.op_right_paren, "Expected ')' after expression");
             
             const grouping = try self.allocator.create(Expr);
             grouping.* = .{ .grouping = .{ .expression = expr }};
@@ -387,7 +380,7 @@ const Parser = struct {
 
     /// Synchronize on the next expression boundary when errors are found
     fn synchronize(self: *Parser) void {
-        self.advance();
+        _ = self.advance();
 
         while (!self.done()) {
             if (self.previous().token_type == .op_semicolon) return;
@@ -407,7 +400,7 @@ const Parser = struct {
               .cf_break,
               .cf_return => return,
 
-              else => self.advance(),
+              else => _ = self.advance(),
             }
         }
     }
@@ -422,10 +415,10 @@ const Parser = struct {
     }
 
     /// Check if the current token is of any of the given types and consume it if it is
-    fn matches(self: *Parser, token_types: []tokenizer.TokenType) bool {
+    fn matches(self: *Parser, token_types: []const tokenizer.TokenType) bool {
         for (token_types) |token_type| {
             if (self.check(token_type)) {
-                self.advance();
+                _ = self.advance();
                 return true;
             }
         }
