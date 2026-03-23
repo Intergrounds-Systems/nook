@@ -1,7 +1,7 @@
 const log = @import("log");
 const std = @import("std");
 
-/// Tokenizer errors
+/// Errors that can arise during tokenization
 const TokenizerError = error{ NoSourceCode, SyntaxError };
 
 /// Tokenize the input source code
@@ -119,7 +119,7 @@ pub const TokenType = enum {
 
     // Literals
     identifier, // begins with a-zA-Z
-    lit_string, // begins with "
+    lit_str,    // begins with "
     lit_char,   // begins with '
     lit_int,    // sequence of only 0-9
     lit_float,  // sequence of only 0-9 and exactly 1 non-initial, non-final .
@@ -128,14 +128,14 @@ pub const TokenType = enum {
     lit_void,   // literal 'void'
 
     // Keywords
-    // Flow control
-    fc_if,
-    fc_else,
-    fc_eval,
-    fc_loop,
-    fc_return,
-    fc_continue,
-    fc_break,
+    // Control flow
+    cf_if,
+    cf_else,
+    cf_eval,
+    cf_loop,
+    cf_return,
+    cf_continue,
+    cf_break,
 
     // Declarations
     decl_pkg,
@@ -221,7 +221,7 @@ const Tokenizer = struct {
     fn createToken(self: Tokenizer, token_type: TokenType, value: []const u8) Token {
         // If we're creating a token enclosed in quotes, subtract the quote positions from the token's location
         var col_offs: u32 = @intCast(value.len);
-        if (token_type == .lit_string or token_type == .lit_char) col_offs += 2;
+        if (token_type == .lit_str or token_type == .lit_char) col_offs += 2;
 
         return Token.init(value, token_type, self.line, self.col - col_offs);
     }
@@ -282,7 +282,7 @@ const Tokenizer = struct {
         const quote = self.cur;
         const line = self.line;
         const col = self.col;
-        const token_type: TokenType = if (quote == '\'') .lit_char else .lit_string;
+        const token_type: TokenType = if (quote == '\'') .lit_char else .lit_str;
 
         self.readChar();
         const start = self.pos;
