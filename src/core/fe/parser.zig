@@ -1,7 +1,6 @@
 const log = @import("log");
 const std = @import("std");
 const tokenizer = @import("tokenizer.zig");
-const value = @import("value.zig");
 
 /// Errors that can arise during parsing
 pub const ParserError = error{UnexpectedToken, ExpectedExpression, ParseFailed};
@@ -19,7 +18,42 @@ pub const Stmt = union(enum) {
     const Variable = struct {
         identifier: tokenizer.Token,
         initializer: ?*Expr,
+
+        /// Return a string representation of the variable statement
+        fn string(self: Variable, allocator: std.mem.Allocator) []const u8 {
+            const suffix = if (self.initializer) |expr|
+                std.fmt.allocPrint(allocator, " = {s}", .{expr.string(allocator)}) catch " = ?"
+            else "";
+
+            return std.fmt.allocPrint(allocator, "{s}{s}", .{
+                self.identifier.value,
+                suffix,
+            }) catch "[variable]";
+        }
     };
+
+    /// Return a string representation of the statement tree
+    pub fn string(self: Stmt, allocator: std.mem.Allocator) []const u8 {
+        const tag = @tagName(self);
+
+        const node = switch (self) {
+            // Statements that just contain an expression
+            .builtin_clone,
+            .builtin_copy,
+            .builtin_drop,
+            .builtin_new,
+            .builtin_print,
+            .expression => |expr| expr.string(allocator),
+
+            // Variable statement
+            .variable => |variable| variable.string(allocator),
+        };
+
+        return std.fmt.allocPrint(allocator, "<{s}> {s}", .{
+            tag,
+            node,
+        }) catch tag;
+    }
 };
 
 /// Represents a sequence of tokens that can be evaluated into a result
@@ -38,53 +72,184 @@ pub const Expr = union(enum){
     const Assign = struct {
         name: tokenizer.Token,
         value: *Expr,
+        
+        /// Return a string representation of the assignment expression
+        fn string(self: Assign, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[assign: {s} = {s}]", .{
+                self.name.value,
+                self.value.string(allocator),
+            }) catch "[assign]";
+        }
     };
 
     const Binary = struct {
         left: *Expr,
         operator: tokenizer.Token,
         right: *Expr,
+        
+        /// Return a string representation of the binary expression
+        fn string(self: Binary, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[binary: {s} {s} {s}]", .{
+                self.left.string(allocator),
+                self.operator.value,
+                self.right.string(allocator),
+            }) catch "[binary]";
+        }
     };
 
     const Call = struct {
         callee: *Expr,
         paren: tokenizer.Token,
         args: []*Expr,
+        
+        /// Return a string representation of the call expression
+        fn string(self: Call, allocator: std.mem.Allocator) []const u8 {
+            var args: []const u8 = "";
+            for (self.args, 0..) |arg, i| {
+                args = std.fmt.allocPrint(allocator, "{s}{s}{s}", .{
+                    args,
+                    arg.string(allocator),
+                    if (i < self.args.len - 1) ", " else "",
+                }) catch args;
+            }
+
+            const close: []const u8 = switch (self.paren.token_type) {
+                .op_left_angle   => ">",
+                .op_left_brace   => "}",
+                .op_left_bracket => "]",
+                else             => ")",
+            };
+
+            return std.fmt.allocPrint(allocator, "[call: {s}{s}{s}{s}]", .{
+                self.callee.string(allocator),
+                self.paren.value,
+                args,
+                close,
+            }) catch "[call]";
+        }
     };
 
     const Get = struct {
         instance: *Expr,
         field: tokenizer.Token,
+        
+        /// Return a string representation of the get expression
+        fn string(self: Get, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[get: {s}.{s}]", .{
+                self.instance.string(allocator),
+                self.field.value,
+            }) catch "[get]";
+        }
     };
 
     const Grouping = struct {
         expression: *Expr,
+        
+        /// Return a string representation of the grouping expression
+        fn string(self: Grouping, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[grouping: ({s})]", .{
+                self.expression.string(allocator),
+            }) catch "[grouping]";
+        }
     };
 
     const Literal = struct {
-        value: value.Value,
+        value: Value,
+        
+        /// Return a string representation of the literal expression
+        fn string(self: Literal, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[literal: {s}]", .{
+                self.value.string(allocator),
+            }) catch "[literal]";
+        }
     };
 
     const Logical = struct {
         left: *Expr,
         operator: tokenizer.Token,
         right: *Expr,
+        
+        /// Return a string representation of the logical expression
+        fn string(self: Logical, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[logical: {s} {s} {s}]", .{
+                self.left.string(allocator),
+                self.operator.value,
+                self.right.string(allocator),
+            }) catch "[logical]";
+        }
     };
 
     const Set = struct {
         instance: *Expr,
         field: tokenizer.Token,
         value: *Expr,
+        
+        /// Return a string representation of the set expression
+        fn string(self: Set, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[set: {s}.{s} -> {s}]", .{
+                self.instance.string(allocator),
+                self.field.value,
+                self.value.string(allocator),
+            }) catch "[set]";
+        }
     };
 
     const Unary = struct {
         operator: tokenizer.Token,
         operand: *Expr,
+        
+        /// Return a string representation of the unary expression
+        fn string(self: Unary, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[unary: {s}{s}]", .{
+                self.operator.value,
+                self.operand.string(allocator),
+            }) catch "[unary]";
+        }
     };
 
     const Variable = struct {
         name: tokenizer.Token,
+        
+        /// Return a string representation of the variable expression
+        fn string(self: Variable, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "[variable: {s}]", .{
+                self.name.value,
+            }) catch "[variable]";
+        }
     };
+
+    /// Return a string representation of the expression
+    fn string(self: Expr, allocator: std.mem.Allocator) []const u8 {
+        return switch (self) {
+            inline else => |inner| inner.string(allocator),
+        };
+    }
+};
+
+pub const Value = union(enum) {
+    val_bool: bool,
+    val_int: i64,
+    val_float: f64,
+    val_char: u8,
+    val_str: []const u8,
+    val_void: void,
+
+    /// Return a string representation of the value
+    fn string(self: Value, allocator: std.mem.Allocator) []const u8 {
+        const value: []const u8 = switch(self) {
+            .val_bool  => |b| std.fmt.allocPrint(allocator, "{any}", .{b}) catch "bool",
+            .val_int   => |i| std.fmt.allocPrint(allocator, "{d}", .{i}) catch "int",
+            .val_float => |f| std.fmt.allocPrint(allocator, "{d}", .{f}) catch "float",
+            .val_char  => |c| std.fmt.allocPrint(allocator, "{c}", .{c}) catch "char",
+            .val_str   => |s| std.fmt.allocPrint(allocator, "{s}", .{s}) catch "string",
+            .val_void  => "void",
+        };
+
+        return std.fmt.allocPrint(allocator, "[{s}: {s}]", .{
+            @tagName(self),
+            value,
+        }) catch @tagName(self);
+    }
 };
 
 /// The parser

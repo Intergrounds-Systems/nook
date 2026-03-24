@@ -22,12 +22,21 @@ pub fn build(allocator: std.mem.Allocator, path: []const u8) !void {
 
     // Report tokens
     // TODO: Allow dumping this to a file
-    log.debug("Tokens:", .{});
+    std.debug.print("\n", .{});
+    log.debug("------------- Tokens Output -------------:", .{});
     for (tokens) |token| {
         log.debug("{s}", .{token.string(allocator)});
     }
 
     // Parse the tokens into an AST
     log.debug("Parsing tokens...", .{});
-    _ = try fe.parse(allocator, tokens);
+    const ast = try fe.parse(allocator, tokens);
+
+    // Report AST
+    // TODO: Allow dumping this to a file
+    std.debug.print("\n", .{});
+    log.debug("---------- AST Output ----------", .{});
+    for (ast.items) |stmt| {
+        log.debug("{s}", .{stmt.string(allocator)});
+    }
 }

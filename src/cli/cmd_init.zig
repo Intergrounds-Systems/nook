@@ -1,4 +1,5 @@
 const cmd = @import("cmd.zig");
+const log = @import("log");
 const meta = @import("meta");
 const module = @import("module");
 const std = @import("std");
@@ -21,12 +22,13 @@ pub fn register(allocator: std.mem.Allocator) !void {
 
 /// Callback for the init command
 fn run(allocator: std.mem.Allocator) ?[]const u8 {
-    module.init(allocator, meta.version) catch |err| {
+    const name = module.init(allocator, meta.version) catch |err| {
         return switch (err) {
             module.ModuleError.AlreadyExists => "A module already exists in this directory",
             else => @errorName(err),
         };
     };
 
+    log.success("Created module '{s}'", .{name});
     return null;
 }

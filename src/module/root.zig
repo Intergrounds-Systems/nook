@@ -28,7 +28,7 @@ pub const Module = struct {
 };
 
 /// Create a new module in the current directory
-pub fn init(allocator: std.mem.Allocator, nook_version: []const u8) !void {
+pub fn init(allocator: std.mem.Allocator, nook_version: []const u8) ![]const u8 {
     var dir = try std.fs.cwd().openDir(".", .{ .iterate = true });
     defer dir.close();
 
@@ -54,6 +54,7 @@ pub fn init(allocator: std.mem.Allocator, nook_version: []const u8) !void {
 
     // Write the module to the disk
     try module.write(&file);
+    return name;
 }
 
 /// Load an existing module file
