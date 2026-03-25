@@ -49,7 +49,7 @@ fn run(allocator: std.mem.Allocator) ?[]const u8 {
 
     // Determine output file
     var outfile = mod.name;
-    if (cmd.cmd_options.get(option_out.long)) |value| { 
+    if (cmd.cmd_options.get(option_out.long)) |value| {
         outfile = value.string;
     }
 
@@ -63,7 +63,7 @@ fn run(allocator: std.mem.Allocator) ?[]const u8 {
         const msg = "Could not build module";
         return std.fmt.allocPrint(allocator, msg ++ ": {any}", .{err}) catch msg;
     };
-    
+
     log.success("Built {s} -> {s}", .{
         mod.name,
         outfile,

@@ -65,7 +65,7 @@ pub fn load(allocator: std.mem.Allocator) !Module {
     // Look for the module file
     var it = dir.iterate();
     var maybe_entry: ?std.fs.Dir.Entry = null;
-    while (try it.next()) |entry| 
+    while (try it.next()) |entry|
         if (std.mem.eql(u8, entry.name, MODULE_FILE)) {
             maybe_entry = entry;
             break;
@@ -80,14 +80,14 @@ pub fn load(allocator: std.mem.Allocator) !Module {
     var mod: Module = .{};
     var buffer: [4069]u8 = undefined;
     var reader = file.reader(&buffer);
- 
+
     // Read the file line by line to parse the module info
     while (try reader.interface.takeDelimiter('\n')) |line| {
         const i = std.mem.indexOf(u8, line, ": ") orelse continue;
         if (i >= line.len - 2) continue;
 
         const key = line[0..i];
-        const value = try allocator.dupe(u8, line[i+2..]);
+        const value = try allocator.dupe(u8, line[i + 2 ..]);
 
         if (std.mem.eql(u8, key, "name")) {
             mod.name = value;

@@ -13,5 +13,3 @@ pub fn parse(allocator: std.mem.Allocator, tokens: []tokenizer.Token) !std.Array
     var p = parser.Parser.init(allocator, tokens);
     return p.parse();
 }
-
-

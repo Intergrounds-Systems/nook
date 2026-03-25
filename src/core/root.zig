@@ -15,7 +15,7 @@ pub fn build(allocator: std.mem.Allocator, path: []const u8) !void {
     const buffer = try allocator.alloc(u8, n);
     var reader = file.reader(buffer);
     const source_code = try reader.interface.readAlloc(allocator, n);
-        
+
     // Tokenize the source code
     log.debug("Tokenizing source code...", .{});
     const tokens = try fe.tokenize(allocator, source_code[0..n]);

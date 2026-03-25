@@ -3,7 +3,12 @@ const std = @import("std");
 const tokenizer = @import("tokenizer.zig");
 
 /// Errors that can arise during parsing
-pub const ParserError = error{UnexpectedToken, ExpectedExpression, ParseFailed};
+pub const ParserError = error{
+    UnexpectedToken,
+    ExpectedExpression,
+    InvalidDataType,
+    ParseFailed,
+};
 
 /// Represents any valid statement in the language
 pub const Stmt = union(enum) {
@@ -17,16 +22,24 @@ pub const Stmt = union(enum) {
 
     const Variable = struct {
         identifier: tokenizer.Token,
+        type_annotation: ?TypeAnnotation,
         initializer: ?*Expr,
 
         /// Return a string representation of the variable statement
         fn string(self: Variable, allocator: std.mem.Allocator) []const u8 {
+            const annotation = if (self.type_annotation) |ta|
+                std.fmt.allocPrint(allocator, "{s}", .{ta.string(allocator)}) catch ": ?"
+            else
+                "(inferred)";
+
             const suffix = if (self.initializer) |expr|
                 std.fmt.allocPrint(allocator, " = {s}", .{expr.string(allocator)}) catch " = ?"
-            else "";
+            else
+                "";
 
-            return std.fmt.allocPrint(allocator, "{s}{s}", .{
+            return std.fmt.allocPrint(allocator, "{s}: {s}{s}", .{
                 self.identifier.value,
+                annotation,
                 suffix,
             }) catch "[variable]";
         }
@@ -38,12 +51,7 @@ pub const Stmt = union(enum) {
 
         const node = switch (self) {
             // Statements that just contain an expression
-            .builtin_clone,
-            .builtin_copy,
-            .builtin_drop,
-            .builtin_new,
-            .builtin_print,
-            .expression => |expr| expr.string(allocator),
+            .builtin_clone, .builtin_copy, .builtin_drop, .builtin_new, .builtin_print, .expression => |expr| expr.string(allocator),
 
             // Variable statement
             .variable => |variable| variable.string(allocator),
@@ -56,8 +64,33 @@ pub const Stmt = union(enum) {
     }
 };
 
+/// Represents a type annotation
+pub const TypeAnnotation = struct {
+    type_id: tokenizer.Token,
+    ptr_type: ?tokenizer.Token,
+
+    fn string(self: TypeAnnotation, allocator: std.mem.Allocator) []const u8 {
+        var prefix: []const u8 = "";
+        var left_angle: []const u8 = "";
+        var right_angle: []const u8 = "";
+
+        if (self.ptr_type) |pt| {
+            prefix = pt.value;
+            left_angle = "<";
+            right_angle = ">";
+        }
+
+        return std.fmt.allocPrint(allocator, "{s}{s}{s}{s}", .{
+            prefix,
+            left_angle,
+            self.type_id.value,
+            right_angle,
+        }) catch "T";
+    }
+};
+
 /// Represents a sequence of tokens that can be evaluated into a result
-pub const Expr = union(enum){
+pub const Expr = union(enum) {
     assign: Assign,
     binary: Binary,
     call: Call,
@@ -72,7 +105,7 @@ pub const Expr = union(enum){
     const Assign = struct {
         name: tokenizer.Token,
         value: *Expr,
-        
+
         /// Return a string representation of the assignment expression
         fn string(self: Assign, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[assign: {s} = {s}]", .{
@@ -86,7 +119,7 @@ pub const Expr = union(enum){
         left: *Expr,
         operator: tokenizer.Token,
         right: *Expr,
-        
+
         /// Return a string representation of the binary expression
         fn string(self: Binary, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[binary: {s} {s} {s}]", .{
@@ -101,7 +134,7 @@ pub const Expr = union(enum){
         callee: *Expr,
         paren: tokenizer.Token,
         args: []*Expr,
-        
+
         /// Return a string representation of the call expression
         fn string(self: Call, allocator: std.mem.Allocator) []const u8 {
             var args: []const u8 = "";
@@ -114,10 +147,10 @@ pub const Expr = union(enum){
             }
 
             const close: []const u8 = switch (self.paren.token_type) {
-                .op_left_angle   => ">",
-                .op_left_brace   => "}",
+                .op_left_angle => ">",
+                .op_left_brace => "}",
                 .op_left_bracket => "]",
-                else             => ")",
+                else => ")",
             };
 
             return std.fmt.allocPrint(allocator, "[call: {s}{s}{s}{s}]", .{
@@ -132,7 +165,7 @@ pub const Expr = union(enum){
     const Get = struct {
         instance: *Expr,
         field: tokenizer.Token,
-        
+
         /// Return a string representation of the get expression
         fn string(self: Get, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[get: {s}.{s}]", .{
@@ -144,7 +177,7 @@ pub const Expr = union(enum){
 
     const Grouping = struct {
         expression: *Expr,
-        
+
         /// Return a string representation of the grouping expression
         fn string(self: Grouping, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[grouping: ({s})]", .{
@@ -155,7 +188,7 @@ pub const Expr = union(enum){
 
     const Literal = struct {
         value: Value,
-        
+
         /// Return a string representation of the literal expression
         fn string(self: Literal, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[literal: {s}]", .{
@@ -168,7 +201,7 @@ pub const Expr = union(enum){
         left: *Expr,
         operator: tokenizer.Token,
         right: *Expr,
-        
+
         /// Return a string representation of the logical expression
         fn string(self: Logical, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[logical: {s} {s} {s}]", .{
@@ -183,7 +216,7 @@ pub const Expr = union(enum){
         instance: *Expr,
         field: tokenizer.Token,
         value: *Expr,
-        
+
         /// Return a string representation of the set expression
         fn string(self: Set, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[set: {s}.{s} -> {s}]", .{
@@ -197,7 +230,7 @@ pub const Expr = union(enum){
     const Unary = struct {
         operator: tokenizer.Token,
         operand: *Expr,
-        
+
         /// Return a string representation of the unary expression
         fn string(self: Unary, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[unary: {s}{s}]", .{
@@ -209,7 +242,7 @@ pub const Expr = union(enum){
 
     const Variable = struct {
         name: tokenizer.Token,
-        
+
         /// Return a string representation of the variable expression
         fn string(self: Variable, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "[variable: {s}]", .{
@@ -236,13 +269,13 @@ pub const Value = union(enum) {
 
     /// Return a string representation of the value
     fn string(self: Value, allocator: std.mem.Allocator) []const u8 {
-        const value: []const u8 = switch(self) {
-            .val_bool  => |b| std.fmt.allocPrint(allocator, "{any}", .{b}) catch "bool",
-            .val_int   => |i| std.fmt.allocPrint(allocator, "{d}", .{i}) catch "int",
+        const value: []const u8 = switch (self) {
+            .val_bool => |b| std.fmt.allocPrint(allocator, "{any}", .{b}) catch "bool",
+            .val_int => |i| std.fmt.allocPrint(allocator, "{d}", .{i}) catch "int",
             .val_float => |f| std.fmt.allocPrint(allocator, "{d}", .{f}) catch "float",
-            .val_char  => |c| std.fmt.allocPrint(allocator, "{c}", .{c}) catch "char",
-            .val_str   => |s| std.fmt.allocPrint(allocator, "{s}", .{s}) catch "string",
-            .val_void  => "void",
+            .val_char => |c| std.fmt.allocPrint(allocator, "{c}", .{c}) catch "char",
+            .val_str => |s| std.fmt.allocPrint(allocator, "{s}", .{s}) catch "string",
+            .val_void => "void",
         };
 
         return std.fmt.allocPrint(allocator, "[{s}: {s}]", .{
@@ -270,7 +303,7 @@ pub const Parser = struct {
     /// Parse the input token stream into a list of statements
     pub fn parse(self: *Parser) anyerror!std.ArrayList(*Stmt) {
         var statements: std.ArrayList(*Stmt) = .empty;
-        
+
         while (!self.done())
             if (self.declaration()) |stmt|
                 try statements.append(self.allocator, stmt);
@@ -289,7 +322,12 @@ pub const Parser = struct {
             self.statement();
 
         return stmt catch |err| {
-            log.err("{any}", .{err});
+            // If this is a ParserError, we already logged it
+            switch (err) {
+                ParserError.UnexpectedToken, ParserError.ExpectedExpression, ParserError.ParseFailed => {},
+                else => log.err("{any}", .{err}),
+            }
+
             self.synchronize();
             self.ok = false;
             return null;
@@ -297,9 +335,53 @@ pub const Parser = struct {
     }
 
     /// The variable declaration rule; satisfied by `IDENTIFIER ( = EXPRESSION ) ;`
-    /// TODO: implement type annotations
     fn varDeclaration(self: *Parser) anyerror!*Stmt {
         const identifier = try self.consume(.identifier, "Expected variable identifier");
+
+        // Detect type annotation
+        var type_annotation: ?TypeAnnotation = null;
+        if (self.matches(&[_]tokenizer.TokenType{.op_colon})) {
+            // Determine pointer type if present
+            var ptr_type: ?tokenizer.Token = null;
+            if (self.matches(&[_]tokenizer.TokenType{ .decl_own, .decl_ref })) {
+                ptr_type = self.previous();
+                _ = try self.consume(.op_left_angle, "Expected '<T>' after 'own' or 'ref'");
+            }
+
+            // Determine data type
+            if (!self.matches(&[_]tokenizer.TokenType{
+                .dt_str,
+                .dt_char,
+                .dt_u8,
+                .dt_u16,
+                .dt_u32,
+                .dt_u64,
+                .dt_uword,
+                .dt_i8,
+                .dt_i16,
+                .dt_i32,
+                .dt_i64,
+                .dt_iword,
+                .dt_f32,
+                .dt_f64,
+                .dt_bool,
+                .dt_void,
+                .identifier,
+            })) {
+                log.err("Invalid data type '{s}'", .{self.peek().value});
+                return ParserError.InvalidDataType;
+            }
+
+            const type_id = self.previous();
+            if (ptr_type) |_| _ = try self.consume(.op_right_angle, "Missing '>' after type annotation");
+
+            type_annotation = .{
+                .type_id = type_id,
+                .ptr_type = ptr_type,
+            };
+        }
+
+        // Detect initializer
         var initializer: ?*Expr = null;
         if (self.matches(&[_]tokenizer.TokenType{.op_equals})) {
             initializer = try self.expression();
@@ -309,37 +391,39 @@ pub const Parser = struct {
         const stmt = try self.allocator.create(Stmt);
         stmt.* = .{ .variable = .{
             .identifier = identifier,
+            .type_annotation = type_annotation,
             .initializer = initializer,
-        }};
+        } };
 
         return stmt;
     }
-    
+
     // Statement parsing rules
     // -----------------------
 
     /// The statement rule; lowest precedence, satisfied by any statement or expression
     fn statement(self: *Parser) anyerror!*Stmt {
-        const expr = try self.innerExpression();
-        const stmt = try self.allocator.create(Stmt); 
-        
-        // Builtins - TODO: do we need this?
+        const stmt = try self.allocator.create(Stmt);
+        var stmt_type: ?tokenizer.TokenType = null;
+
+        // Detect builtins
         if (self.matches(&[_]tokenizer.TokenType{
             .builtin_clone,
             .builtin_copy,
             .builtin_drop,
             .builtin_new,
             .builtin_print,
-        })) {
-            stmt.* = switch (self.previous().token_type) {
-                .builtin_clone => .{ .builtin_clone = expr },
-                .builtin_copy => .{ .builtin_copy = expr },
-                .builtin_drop => .{ .builtin_drop = expr },
-                .builtin_new => .{ .builtin_new = expr },
-                .builtin_print => .{ .builtin_print = expr },
-                else => undefined,
-            };
-        } else stmt.* = .{ .expression = expr };
+        })) stmt_type = self.previous().token_type;
+
+        const expr = try self.innerExpression();
+        stmt.* = switch (stmt_type orelse .eof) {
+            .builtin_clone => .{ .builtin_clone = expr },
+            .builtin_copy => .{ .builtin_copy = expr },
+            .builtin_drop => .{ .builtin_drop = expr },
+            .builtin_new => .{ .builtin_new = expr },
+            .builtin_print => .{ .builtin_print = expr },
+            else => .{ .expression = expr },
+        };
 
         return stmt;
     }
@@ -348,7 +432,7 @@ pub const Parser = struct {
     fn innerExpression(self: *Parser) anyerror!*Expr {
         const expr = try self.expression();
         _ = try self.consume(.op_semicolon, "Expected ';' after expression");
-    
+
         return expr;
     }
 
@@ -375,7 +459,7 @@ pub const Parser = struct {
                 .left = expr,
                 .operator = operator,
                 .right = right,
-            }};
+            } };
             expr = node;
         }
 
@@ -399,7 +483,7 @@ pub const Parser = struct {
                 .left = expr,
                 .operator = operator,
                 .right = right,
-            }};
+            } };
             expr = node;
         }
 
@@ -421,7 +505,7 @@ pub const Parser = struct {
                 .left = expr,
                 .operator = operator,
                 .right = right,
-            }};
+            } };
             expr = node;
         }
 
@@ -443,7 +527,7 @@ pub const Parser = struct {
                 .left = expr,
                 .operator = operator,
                 .right = right,
-            }};
+            } };
             expr = node;
         }
 
@@ -462,7 +546,7 @@ pub const Parser = struct {
             expr.* = .{ .unary = .{
                 .operator = operator,
                 .operand = operand,
-            }};
+            } };
 
             return expr;
         }
@@ -476,7 +560,7 @@ pub const Parser = struct {
         if (self.matches(&[_]tokenizer.TokenType{.lit_int})) {
             const int_val = try std.fmt.parseInt(i64, self.previous().value, 10);
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .literal = .{ .value = .{ .val_int = int_val }}};
+            expr.* = .{ .literal = .{ .value = .{ .val_int = int_val } } };
 
             return expr;
         }
@@ -485,8 +569,8 @@ pub const Parser = struct {
         if (self.matches(&[_]tokenizer.TokenType{.lit_float})) {
             const float_val = try std.fmt.parseFloat(f64, self.previous().value);
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .literal = .{ .value = .{ .val_float = float_val }}};
-            
+            expr.* = .{ .literal = .{ .value = .{ .val_float = float_val } } };
+
             return expr;
         }
 
@@ -494,7 +578,7 @@ pub const Parser = struct {
         if (self.matches(&[_]tokenizer.TokenType{.lit_char})) {
             const char_val = self.previous().value[0];
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .literal = .{ .value = .{ .val_char = char_val }}};
+            expr.* = .{ .literal = .{ .value = .{ .val_char = char_val } } };
 
             return expr;
         }
@@ -503,24 +587,24 @@ pub const Parser = struct {
         if (self.matches(&[_]tokenizer.TokenType{.lit_str})) {
             const str_val = self.previous().value;
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .literal = .{ .value = .{ .val_str = str_val }}};
-        
+            expr.* = .{ .literal = .{ .value = .{ .val_str = str_val } } };
+
             return expr;
         }
-      
+
         // Bool
         if (self.matches(&[_]tokenizer.TokenType{ .lit_true, .lit_false })) {
             const bool_val = std.mem.eql(u8, self.previous().value, "true");
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .literal = .{ .value = .{ .val_bool = bool_val }}};
+            expr.* = .{ .literal = .{ .value = .{ .val_bool = bool_val } } };
 
             return expr;
         }
- 
+
         // Identifier
         if (self.matches(&[_]tokenizer.TokenType{.identifier})) {
             const expr = try self.allocator.create(Expr);
-            expr.* = .{ .variable = .{ .name = self.previous() }};
+            expr.* = .{ .variable = .{ .name = self.previous() } };
 
             return expr;
         }
@@ -529,10 +613,10 @@ pub const Parser = struct {
         if (self.matches(&[_]tokenizer.TokenType{.op_left_paren})) {
             const expr = try self.expression();
             _ = try self.consume(.op_right_paren, "Expected ')' after expression");
-            
+
             const grouping = try self.allocator.create(Expr);
-            grouping.* = .{ .grouping = .{ .expression = expr }};
-            
+            grouping.* = .{ .grouping = .{ .expression = expr } };
+
             return grouping;
         }
 
@@ -551,21 +635,9 @@ pub const Parser = struct {
             if (self.previous().token_type == .op_semicolon) return;
 
             switch (self.peek().token_type) {
-              .decl_struct,
-              .decl_static,
-              .decl_dyn,
-              .decl_mtd,
-              .decl_var,
-              
-              .cf_loop,
-              .cf_if,
-              .cf_else,
-              .cf_eval,
-              .cf_continue,
-              .cf_break,
-              .cf_return => return,
+                .decl_struct, .decl_static, .decl_dyn, .decl_mtd, .decl_var, .cf_loop, .cf_if, .cf_else, .cf_eval, .cf_continue, .cf_break, .cf_return => return,
 
-              else => _ = self.advance(),
+                else => _ = self.advance(),
             }
         }
     }
@@ -618,4 +690,3 @@ pub const Parser = struct {
         return self.tokens[self.pos - 1];
     }
 };
-

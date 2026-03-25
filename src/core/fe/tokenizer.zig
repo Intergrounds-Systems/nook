@@ -34,72 +34,88 @@ pub const Token = struct {
 
 /// The type of a token
 pub const TokenType = enum {
-    // Single-char tokens
-    op_hash,          // #
-    op_dollar,        // $
-    op_left_paren,    // (
-    op_right_paren,   // )
-    op_left_bracket,  // [
+    // Single-char operators
+    op_hash, // #
+    op_dollar, // $
+    op_left_paren, // (
+    op_right_paren, // )
+    op_left_bracket, // [
     op_right_bracket, // ]
-    op_left_brace,    // {
-    op_right_brace,   // }
-    op_comma,         // ,
-    op_question,      // ?
-    op_underscore,    // _
-    op_semicolon,     // ;
-    op_dot,           // .
-    
-    // Single or double-char tokens by initial char
-    op_bang,           // !
-    op_bang_equals,    // !=
-    op_percent,        // %
-    op_percent_equals, // %=
-    op_and,            // &
-    op_and_and,        // &&
-    op_and_equals,     // &=
-    op_star,           // *
-    op_star_equals,    // *=
-    op_plus,           // +
-    op_plus_equals,    // +=
-    op_minus,          // -
-    op_minus_equals,   // -=
-    op_right_arrow,    // ->
-    op_slash,          // /
-    op_slash_equals,   // /=
-    op_comment,        // //
-    op_colon,          // :
-    op_colon_colon,    // ::
-    op_equals,         // =
-    op_equals_equals,  // ==
-    op_caret,          // ^
-    op_caret_equals,   // ^=
-    op_pipe,           // |
-    op_pipe_equals,    // |=
-    op_pipe_pipe,      // ||
-    op_tilde,          // ~
-    op_tilde_equals,   // ~=
+    op_left_brace, // {
+    op_right_brace, // }
+    op_comma, // ,
+    op_question, // ?
+    op_underscore, // _
+    op_semicolon, // ;
+    op_dot, // .
 
-    // Single, double, or triple-char tokens by initial char
-    op_left_angle,         // <
-    op_left_shift,         // <<
-    op_less_or_equals,     // <=
-    op_left_shift_equals,  // <<=
-    op_right_angle,        // >
-    op_greater_or_equals,  // >=
-    op_right_shift,        // >>
+    // Single or double-char operators by initial char
+    op_bang, // !
+    op_bang_equals, // !=
+    op_percent, // %
+    op_percent_equals, // %=
+    op_and, // &
+    op_and_and, // &&
+    op_and_equals, // &=
+    op_star, // *
+    op_star_equals, // *=
+    op_plus, // +
+    op_plus_equals, // +=
+    op_minus, // -
+    op_minus_equals, // -=
+    op_right_arrow, // ->
+    op_slash, // /
+    op_slash_equals, // /=
+    op_comment, // //
+    op_colon, // :
+    op_colon_colon, // ::
+    op_equals, // =
+    op_equals_equals, // ==
+    op_caret, // ^
+    op_caret_equals, // ^=
+    op_pipe, // |
+    op_pipe_equals, // |=
+    op_pipe_pipe, // ||
+    op_tilde, // ~
+    op_tilde_equals, // ~=
+
+    // Single, double, or triple-char operators by initial char
+    op_left_angle, // <
+    op_left_shift, // <<
+    op_less_or_equals, // <=
+    op_left_shift_equals, // <<=
+    op_right_angle, // >
+    op_greater_or_equals, // >=
+    op_right_shift, // >>
     op_right_shift_equals, // >>=
 
     // Literals
     identifier, // begins with a-zA-Z
-    lit_str,    // begins with "
-    lit_char,   // begins with '
-    lit_int,    // sequence of only 0-9
-    lit_float,  // sequence of only 0-9 and exactly 1 non-initial, non-final .
-    lit_true,   // literal 'true'
-    lit_false,  // literal 'false'
-    lit_void,   // literal 'void'
+    lit_str, // begins with "
+    lit_char, // begins with '
+    lit_int, // sequence of only 0-9
+    lit_float, // sequence of only 0-9 and exactly 1 non-initial, non-final .
+    lit_true, // literal 'true'
+    lit_false, // literal 'false'
 
-    // Keywords
+    // Data types
+    dt_str,
+    dt_char,
+    dt_u8,
+    dt_u16,
+    dt_u32,
+    dt_u64,
+    dt_uword,
+    dt_i8,
+    dt_i16,
+    dt_i32,
+    dt_i64,
+    dt_iword,
+    dt_f32,
+    dt_f64,
+    dt_bool,
+    dt_void,
+
     // Control flow
     cf_if,
     cf_else,
@@ -148,7 +164,7 @@ pub const Tokenizer = struct {
             .allocator = allocator,
             .input = input,
         };
-        
+
         tokenizer.readChar();
         return tokenizer;
     }
@@ -176,7 +192,7 @@ pub const Tokenizer = struct {
             });
             return TokenizerError.SyntaxError;
         }
-    
+
         return tokens.items;
     }
 
@@ -192,13 +208,9 @@ pub const Tokenizer = struct {
         // ---------------------------------------------
 
         // Scanning an identifier
-        if (
-            isLetter(self.cur) or (
-                self.cur == '_' and
-                self.next < self.input.len and
-                isAlnum(self.input[self.next])
-            )
-        ) return self.readIdentifier();
+        if (isLetter(self.cur) or (self.cur == '_' and
+            self.next < self.input.len and
+            isAlnum(self.input[self.next]))) return self.readIdentifier();
 
         // Scanning a number
         if (isDigit(self.cur)) return self.readNumber();
@@ -335,7 +347,7 @@ pub const Tokenizer = struct {
         // Adjust line and col to account for the number of lines we read
         self.readChar();
         self.line += num_lines;
-        if(num_lines > 0) self.col = 0;
+        if (num_lines > 0) self.col = 0;
 
         return self.createToken(token_type, buffer);
     }
@@ -351,7 +363,7 @@ pub const Tokenizer = struct {
             const offs = 4 - i;
 
             if (self.pos + offs <= self.input.len) {
-                const op = self.input[self.pos..self.pos + offs];
+                const op = self.input[self.pos .. self.pos + offs];
 
                 if (operator_token_types.get(op)) |op_type| {
                     token_type = op_type;
@@ -416,12 +428,9 @@ fn isValidUnicodePoint(lit: []const u8) bool {
 
     // Each digit past the first 2 must be a valid hexadecimal digit
     for (lit[2..]) |char| {
-        if (!(
-                (char >= '0' and char <= '9') or
-                (char >= 'A' and char <= 'F') or
-                (char >= 'a' and char <= 'f')
-            )
-        ) return false;
+        if (!((char >= '0' and char <= '9') or
+            (char >= 'A' and char <= 'F') or
+            (char >= 'a' and char <= 'f'))) return false;
     }
 
     return true;
@@ -433,15 +442,15 @@ fn isValidUnicodePoint(lit: []const u8) bool {
 /// Valid string literal representations of escaped characters
 const valid_escaped_chars = std.StaticStringMap(void).initComptime(.{
     .{ "\\\\", {} }, // Backslash
-    .{ "\\a",  {} }, // Alert
-    .{ "\\b",  {} }, // Backspace
-    .{ "\\f",  {} }, // Page break (form feed)
-    .{ "\\n",  {} }, // Newline (line feed)
-    .{ "\\r",  {} }, // Carriage return
-    .{ "\\t",  {} }, // Horizontal tab
-    .{ "\\v",  {} }, // Vertical tab
-    .{ "\\'",  {} }, // Single quote
-    .{ "\\0",  {} }, // Null char
+    .{ "\\a", {} }, // Alert
+    .{ "\\b", {} }, // Backspace
+    .{ "\\f", {} }, // Page break (form feed)
+    .{ "\\n", {} }, // Newline (line feed)
+    .{ "\\r", {} }, // Carriage return
+    .{ "\\t", {} }, // Horizontal tab
+    .{ "\\v", {} }, // Vertical tab
+    .{ "\\'", {} }, // Single quote
+    .{ "\\0", {} }, // Null char
 });
 
 /// Literal escaped characters
@@ -456,89 +465,87 @@ const unescaped_chars = std.StaticStringMap(void).initComptime(.{
 /// Operator token types
 const operator_token_types = std.StaticStringMap(TokenType).initComptime(.{
     // Single char
-    .{ "#", .op_hash          },
-    .{ "$", .op_dollar        },
-    .{ "(", .op_left_paren    },
-    .{ ")", .op_right_paren   },
-    .{ "[", .op_left_bracket  },
+    .{ "#", .op_hash },
+    .{ "$", .op_dollar },
+    .{ "(", .op_left_paren },
+    .{ ")", .op_right_paren },
+    .{ "[", .op_left_bracket },
     .{ "]", .op_right_bracket },
-    .{ "{", .op_left_brace    },
-    .{ "}", .op_right_brace   },
-    .{ ",", .op_comma         },
-    .{ "?", .op_question      },
-    .{ "_", .op_underscore    },
-    .{ ";", .op_semicolon     },
-    .{ ".", .op_dot           },
+    .{ "{", .op_left_brace },
+    .{ "}", .op_right_brace },
+    .{ ",", .op_comma },
+    .{ "?", .op_question },
+    .{ "_", .op_underscore },
+    .{ ";", .op_semicolon },
+    .{ ".", .op_dot },
 
     // Single and double-char
-    .{ "~=", .op_tilde_equals   },
-    .{ "~",  .op_tilde          },
-    .{ "|=", .op_pipe_equals    },
-    .{ "||", .op_pipe_pipe      },
-    .{ "|",  .op_pipe           },
-    .{ "^=", .op_caret_equals   },
-    .{ "^",  .op_caret          },
-    .{ "==", .op_equals_equals  },
-    .{ "=",  .op_equals         },
-    .{ "::", .op_colon_colon    },
-    .{ ":",  .op_colon          },
-    .{ "/=", .op_slash_equals   },
-    .{ "/",  .op_slash          },
-    .{ "//", .op_comment        },
-    .{ "->", .op_right_arrow    },
-    .{ "-=", .op_minus_equals   },
-    .{ "-",  .op_minus          },
-    .{ "+=", .op_plus_equals    },
-    .{ "+",  .op_plus           },
-    .{ "*=", .op_star_equals    },
-    .{ "*",  .op_star           },
-    .{ "&=", .op_and_equals     },
-    .{ "&&", .op_and_and        },
-    .{ "&",  .op_and            },
+    .{ "~=", .op_tilde_equals },
+    .{ "~", .op_tilde },
+    .{ "|=", .op_pipe_equals },
+    .{ "||", .op_pipe_pipe },
+    .{ "|", .op_pipe },
+    .{ "^=", .op_caret_equals },
+    .{ "^", .op_caret },
+    .{ "==", .op_equals_equals },
+    .{ "=", .op_equals },
+    .{ "::", .op_colon_colon },
+    .{ ":", .op_colon },
+    .{ "/=", .op_slash_equals },
+    .{ "/", .op_slash },
+    .{ "//", .op_comment },
+    .{ "->", .op_right_arrow },
+    .{ "-=", .op_minus_equals },
+    .{ "-", .op_minus },
+    .{ "+=", .op_plus_equals },
+    .{ "+", .op_plus },
+    .{ "*=", .op_star_equals },
+    .{ "*", .op_star },
+    .{ "&=", .op_and_equals },
+    .{ "&&", .op_and_and },
+    .{ "&", .op_and },
     .{ "%=", .op_percent_equals },
-    .{ "%",  .op_percent        },
-    .{ "!=", .op_bang_equals    },
-    .{ "!",  .op_bang           },
+    .{ "%", .op_percent },
+    .{ "!=", .op_bang_equals },
+    .{ "!", .op_bang },
 
     // Single, double and triple-char
-    .{ "<<=", .op_left_shift_equals  },
-    .{ "<<",  .op_left_shift         },
-    .{ "<=",  .op_less_or_equals     },
-    .{ "<",   .op_left_angle         },
+    .{ "<<=", .op_left_shift_equals },
+    .{ "<<", .op_left_shift },
+    .{ "<=", .op_less_or_equals },
+    .{ "<", .op_left_angle },
     .{ ">>=", .op_right_shift_equals },
-    .{ ">>",  .op_right_shift        },
-    .{ ">=",  .op_greater_or_equals  },
-    .{ ">",   .op_right_angle        },
+    .{ ">>", .op_right_shift },
+    .{ ">=", .op_greater_or_equals },
+    .{ ">", .op_right_angle },
 });
-
 
 /// Keyword token types
 const keyword_token_types = std.StaticStringMap(TokenType).initComptime(.{
     // Control flow
-    .{ "if",       .cf_if       },
-    .{ "else",     .cf_else     },
-    .{ "eval",     .cf_eval     },
-    .{ "loop",     .cf_loop     },
-    .{ "return",   .cf_return   },
+    .{ "if", .cf_if },
+    .{ "else", .cf_else },
+    .{ "eval", .cf_eval },
+    .{ "loop", .cf_loop },
+    .{ "return", .cf_return },
     .{ "continue", .cf_continue },
-    .{ "break",    .cf_break    },
+    .{ "break", .cf_break },
 
     // Declaration
-    .{ "pkg",    .decl_pkg    },
+    .{ "pkg", .decl_pkg },
     .{ "struct", .decl_struct },
-    .{ "var",    .decl_var    },
-    .{ "const",  .decl_const  },
+    .{ "var", .decl_var },
+    .{ "const", .decl_const },
     .{ "static", .decl_static },
-    .{ "dyn",    .decl_dyn    },
-    .{ "mtd",    .decl_mtd    },
-    .{ "own",    .decl_own    },
-    .{ "ref",    .decl_ref    },
+    .{ "dyn", .decl_dyn },
+    .{ "mtd", .decl_mtd },
+    .{ "own", .decl_own },
+    .{ "ref", .decl_ref },
 
     // Builtin
-    .{ "new",   .builtin_new   },
-    .{ "drop",  .builtin_drop  },
-    .{ "copy",  .builtin_copy  },
+    .{ "new", .builtin_new },
+    .{ "drop", .builtin_drop },
+    .{ "copy", .builtin_copy },
     .{ "clone", .builtin_clone },
     .{ "print", .builtin_print },
 });
-
