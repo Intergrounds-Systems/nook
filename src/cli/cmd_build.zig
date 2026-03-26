@@ -13,11 +13,23 @@ pub const command: cmd.Command = .{
 };
 
 /// Options for the build command
+const option_ast: cmd.Option = .{
+    .long = "ast",
+    .short = 'a',
+    .description = "Output abstract syntax tree",
+    .data_type = .flag,
+};
 const option_out: cmd.Option = .{
     .long = "out",
     .short = 'o',
     .description = "Output file name, default is module name",
     .data_type = .string,
+};
+const option_tokens: cmd.Option = .{
+    .long = "tokens",
+    .short = 't',
+    .description = "Output token stream",
+    .data_type = .flag,
 };
 const option_verbose: cmd.Option = .{
     .long = "verbose",
@@ -26,7 +38,9 @@ const option_verbose: cmd.Option = .{
     .data_type = .flag,
 };
 const cmd_options = [_]cmd.Option{
+    option_ast,
     option_out,
+    option_tokens,
     option_verbose,
     cmd.help_option,
 };
@@ -59,14 +73,22 @@ fn run(allocator: std.mem.Allocator) ?[]const u8 {
     });
 
     // Start the build
-    core.build(allocator, "main.nk") catch |err| {
+    core.build(allocator, .{
+        .output_tokens = cmd.cmd_options.contains(option_tokens.long),
+        .output_ast = cmd.cmd_options.contains(option_ast.long),
+    }) catch |err| {
         const msg = "Could not build module";
         return std.fmt.allocPrint(allocator, msg ++ ": {any}", .{err}) catch msg;
     };
 
-    log.success("Built {s} -> {s}", .{
+    const same_name = std.mem.eql(u8, mod.name, outfile);
+    const arrow = if (same_name) "" else " -> ";
+    const suffix = if (same_name) "" else outfile;
+    log.success("Built {s}{s}{s}", .{
         mod.name,
-        outfile,
+        arrow,
+        suffix,
     });
+
     return null;
 }

@@ -1,4 +1,4 @@
-pkg main
+pkg main;
 
 // The entrypoint
 static main() {

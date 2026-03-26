@@ -83,7 +83,7 @@ pub const Tokenizer = struct {
         if (operator_token_types.get(&[_]u8{self.cur})) |op| return self.readOperator(op);
 
         // Scanned an unrecognized token
-        log.err("Unrecognized character '{}' on line {} col {}", .{
+        log.err("Unrecognized character '{c}' on line {d} col {d}", .{
             self.cur,
             self.line,
             self.col,
@@ -243,6 +243,7 @@ pub const Tokenizer = struct {
             const start = self.pos;
             while (self.cur != '\n' and self.cur != 0) self.readChar();
             buffer = self.input[start..self.pos];
+            token_type = .comment;
         }
 
         return self.createToken(token_type, buffer);

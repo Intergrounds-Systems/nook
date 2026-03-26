@@ -140,5 +140,6 @@ pub const TokenType = enum {
     builtin_print,
 
     // Other
-    eof, // end of file
+    comment,
+    eof,
 };

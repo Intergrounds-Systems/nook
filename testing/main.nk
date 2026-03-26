@@ -1,2 +1,1 @@
-var name: ref<str> = "Dave";
-var id: uword = 12;
+pkg main;

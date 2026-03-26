@@ -9,8 +9,20 @@ pub const Stmt = union(enum) {
     builtin_drop: *expr.Expr,
     builtin_new: *expr.Expr,
     builtin_print: *expr.Expr,
+
     expression: *expr.Expr,
+
+    package: Package,
     variable: Variable,
+
+    const Package = struct {
+        identifier: token.Token,
+
+        /// Return a string representation of the package statement
+        fn string(self: Package) []const u8 {
+            return self.identifier.value;
+        }
+    };
 
     const Variable = struct {
         identifier: token.Token,
@@ -50,6 +62,9 @@ pub const Stmt = union(enum) {
             .builtin_print,
             .expression,
             => |e| e.string(allocator),
+
+            // Package statement
+            .package => |p| p.string(),
 
             // Variable statement
             .variable => |v| v.string(allocator),

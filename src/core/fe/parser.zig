@@ -41,8 +41,12 @@ pub const Parser = struct {
 
     /// The declaration rule; lowest precedence, satisfied by any declaration, statement, or expression
     fn declaration(self: *Parser) ?*types.Stmt {
+        if (self.matches(&[_]types.TokenType{.comment})) return null;
+
         const stmt = if (self.matches(&[_]types.TokenType{.decl_var}))
             self.varDeclaration()
+        else if (self.matches(&[_]types.TokenType{.decl_pkg}))
+            self.pkgDeclaration()
         else
             self.statement();
 
@@ -59,7 +63,20 @@ pub const Parser = struct {
         };
     }
 
-    /// The variable declaration rule; satisfied by `IDENTIFIER ( = EXPRESSION ) ;`
+    /// The package declaration rule; satisfied by `IDENTIFIER ;`
+    fn pkgDeclaration(self: *Parser) anyerror!*types.Stmt {
+        const identifier = try self.consume(.identifier, "Expected package identifier");
+        _ = try self.consume(.op_semicolon, "Expected ';' after package declaration");
+
+        const stmt = try self.allocator.create(types.Stmt);
+        stmt.* = .{ .package = .{
+            .identifier = identifier,
+        } };
+
+        return stmt;
+    }
+
+    /// The variable declaration rule; satisfied by `IDENTIFIER ( : ( T | own<T> | ref<T> ) ) ( = EXPRESSION ) ;`
     fn varDeclaration(self: *Parser) anyerror!*types.Stmt {
         const identifier = try self.consume(.identifier, "Expected variable identifier");
 
@@ -345,7 +362,11 @@ pub const Parser = struct {
             return grouping;
         }
 
-        log.err("Expected expression, found {s}", .{self.peek().value});
+        log.err("Expected expression, found {s} on line {d} col {d}", .{
+            self.peek().value,
+            self.peek().line,
+            self.peek().col,
+        });
         return ParserError.ExpectedExpression;
     }
 
@@ -384,7 +405,11 @@ pub const Parser = struct {
     fn consume(self: *Parser, token_type: types.TokenType, error_msg: []const u8) ParserError!types.Token {
         if (self.check(token_type)) return self.advance();
 
-        log.err("Parse Error - {s}", .{error_msg});
+        log.err("{s} on line {d} col {d}", .{
+            error_msg,
+            self.peek().line,
+            self.peek().col,
+        });
         return ParserError.UnexpectedToken;
     }
 
