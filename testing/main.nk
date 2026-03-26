@@ -1,0 +1,2 @@
+var name: ref<str> = "Dave";
+var id: uword = 12;

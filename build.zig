@@ -26,9 +26,6 @@ pub fn build(b: *std.Build) void {
     const cli_mod = b.createModule(.{
         .root_source_file = b.path("src/cli/root.zig"),
     });
-    const core_mod = b.createModule(.{
-        .root_source_file = b.path("src/core/root.zig"),
-    });
     const log_mod = b.createModule(.{
         .root_source_file = b.path("src/log/root.zig"),
     });
@@ -37,6 +34,13 @@ pub fn build(b: *std.Build) void {
     });
     const util_mod = b.createModule(.{
         .root_source_file = b.path("src/util/root.zig"),
+    });
+
+    const core_mod = b.createModule(.{
+        .root_source_file = b.path("src/core/root.zig"),
+    });
+    const types_mod = b.createModule(.{
+        .root_source_file = b.path("src/core/types/root.zig"),
     });
 
     // Configure metadata
@@ -54,9 +58,10 @@ pub fn build(b: *std.Build) void {
     cli_mod.addOptions("meta", meta);
 
     core_mod.addImport("log", log_mod);
+    core_mod.addImport("types", types_mod);
     log_mod.addImport("util", util_mod);
-    exe.root_module.addImport("cli", cli_mod);
 
+    exe.root_module.addImport("cli", cli_mod);
     b.installArtifact(exe);
 }
 

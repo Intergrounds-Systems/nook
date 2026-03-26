@@ -1,150 +1,11 @@
 const log = @import("log");
 const std = @import("std");
+const types = @import("types");
 
 /// Errors that can arise during tokenization
-const TokenizerError = error{ NoSourceCode, SyntaxError };
-
-/// An individual semantic unit in the source code
-pub const Token = struct {
-    value: []const u8,
-    token_type: TokenType,
-    line: usize,
-    col: usize,
-
-    /// Create a new Token
-    fn init(value: []const u8, token_type: TokenType, line: u32, col: u32) Token {
-        return .{
-            .value = value,
-            .token_type = token_type,
-            .line = line,
-            .col = col,
-        };
-    }
-
-    /// Return a string representation of the token
-    pub fn string(self: Token, allocator: std.mem.Allocator) []const u8 {
-        return std.fmt.allocPrint(allocator, "[{s}] {s} ({d}, {d})", .{
-            @tagName(self.token_type),
-            self.value,
-            self.line,
-            self.col,
-        }) catch self.value;
-    }
-};
-
-/// The type of a token
-pub const TokenType = enum {
-    // Single-char operators
-    op_hash, // #
-    op_dollar, // $
-    op_left_paren, // (
-    op_right_paren, // )
-    op_left_bracket, // [
-    op_right_bracket, // ]
-    op_left_brace, // {
-    op_right_brace, // }
-    op_comma, // ,
-    op_question, // ?
-    op_underscore, // _
-    op_semicolon, // ;
-    op_dot, // .
-
-    // Single or double-char operators by initial char
-    op_bang, // !
-    op_bang_equals, // !=
-    op_percent, // %
-    op_percent_equals, // %=
-    op_and, // &
-    op_and_and, // &&
-    op_and_equals, // &=
-    op_star, // *
-    op_star_equals, // *=
-    op_plus, // +
-    op_plus_equals, // +=
-    op_minus, // -
-    op_minus_equals, // -=
-    op_right_arrow, // ->
-    op_slash, // /
-    op_slash_equals, // /=
-    op_comment, // //
-    op_colon, // :
-    op_colon_colon, // ::
-    op_equals, // =
-    op_equals_equals, // ==
-    op_caret, // ^
-    op_caret_equals, // ^=
-    op_pipe, // |
-    op_pipe_equals, // |=
-    op_pipe_pipe, // ||
-    op_tilde, // ~
-    op_tilde_equals, // ~=
-
-    // Single, double, or triple-char operators by initial char
-    op_left_angle, // <
-    op_left_shift, // <<
-    op_less_or_equals, // <=
-    op_left_shift_equals, // <<=
-    op_right_angle, // >
-    op_greater_or_equals, // >=
-    op_right_shift, // >>
-    op_right_shift_equals, // >>=
-
-    // Literals
-    identifier, // begins with a-zA-Z
-    lit_str, // begins with "
-    lit_char, // begins with '
-    lit_int, // sequence of only 0-9
-    lit_float, // sequence of only 0-9 and exactly 1 non-initial, non-final .
-    lit_true, // literal 'true'
-    lit_false, // literal 'false'
-
-    // Data types
-    dt_str,
-    dt_char,
-    dt_u8,
-    dt_u16,
-    dt_u32,
-    dt_u64,
-    dt_uword,
-    dt_i8,
-    dt_i16,
-    dt_i32,
-    dt_i64,
-    dt_iword,
-    dt_f32,
-    dt_f64,
-    dt_bool,
-    dt_void,
-
-    // Control flow
-    cf_if,
-    cf_else,
-    cf_eval,
-    cf_loop,
-    cf_return,
-    cf_continue,
-    cf_break,
-
-    // Declarations
-    decl_pkg,
-    decl_struct,
-    decl_var,
-    decl_const,
-    decl_static,
-    decl_dyn,
-    decl_mtd,
-    decl_own,
-    decl_ref,
-
-    // Builtins
-    builtin_new,
-    builtin_drop,
-    builtin_copy,
-    builtin_clone,
-    builtin_print,
-
-    // Other
-    eof, // end of file
+const TokenizerError = error{
+    NoSourceCode,
+    SyntaxError,
 };
 
 /// The tokenizer
@@ -170,9 +31,9 @@ pub const Tokenizer = struct {
     }
 
     /// Parse the source code into tokens
-    pub fn tokenize(self: *Tokenizer) ![]Token {
-        var tokens: std.ArrayList(Token) = .empty;
-        var token: Token = undefined;
+    pub fn tokenize(self: *Tokenizer) ![]types.Token {
+        var tokens: std.ArrayList(types.Token) = .empty;
+        var token: types.Token = undefined;
 
         // Scan tokens
         while (token.token_type != .eof) : (try tokens.append(self.allocator, token))
@@ -197,8 +58,8 @@ pub const Tokenizer = struct {
     }
 
     /// Get the next Token
-    fn nextToken(self: *Tokenizer) Token {
-        const empty_token = Token.init("", .eof, self.line, self.col);
+    fn nextToken(self: *Tokenizer) types.Token {
+        const empty_token = types.Token.init("", .eof, self.line, self.col);
         self.skipWhitespace();
 
         // Reached end of input, return the empty token
@@ -234,12 +95,12 @@ pub const Tokenizer = struct {
     }
 
     /// Create a token with the given parameters
-    fn createToken(self: Tokenizer, token_type: TokenType, value: []const u8) Token {
+    fn createToken(self: Tokenizer, token_type: types.TokenType, value: []const u8) types.Token {
         // If we're creating a token enclosed in quotes, subtract the quote positions from the token's location
         var col_offs: u32 = @intCast(value.len);
         if (token_type == .lit_str or token_type == .lit_char) col_offs += 2;
 
-        return Token.init(value, token_type, self.line, self.col - col_offs);
+        return types.Token.init(value, token_type, self.line, self.col - col_offs);
     }
 
     /// Read over whitespace
@@ -266,7 +127,7 @@ pub const Tokenizer = struct {
     }
 
     /// Read an identifier
-    fn readIdentifier(self: *Tokenizer) Token {
+    fn readIdentifier(self: *Tokenizer) types.Token {
         const start = self.pos;
         while (isAlnum(self.cur)) self.readChar();
 
@@ -275,9 +136,9 @@ pub const Tokenizer = struct {
     }
 
     /// Read a number
-    fn readNumber(self: *Tokenizer) Token {
+    fn readNumber(self: *Tokenizer) types.Token {
         const start = self.pos;
-        var token_type: TokenType = .lit_int;
+        var token_type: types.TokenType = .lit_int;
 
         while (isDigit(self.cur)) {
             self.readChar();
@@ -294,11 +155,11 @@ pub const Tokenizer = struct {
 
     /// Read a quote; scans until the closing quote is found.
     /// If it scans until EOF without finding a close, we have an error
-    fn readQuote(self: *Tokenizer) Token {
+    fn readQuote(self: *Tokenizer) types.Token {
         const quote = self.cur;
         const line = self.line;
         const col = self.col;
-        const token_type: TokenType = if (quote == '\'') .lit_char else .lit_str;
+        const token_type: types.TokenType = if (quote == '\'') .lit_char else .lit_str;
 
         self.readChar();
         const start = self.pos;
@@ -353,7 +214,7 @@ pub const Tokenizer = struct {
     }
 
     /// Read an operator; an operator can be 1, 2, or 3 chars long
-    fn readOperator(self: *Tokenizer, base_type: TokenType) Token {
+    fn readOperator(self: *Tokenizer, base_type: types.TokenType) types.Token {
         var token_type = base_type;
         var buffer: []const u8 = &[_]u8{self.cur};
         var to_scan: usize = 0;
@@ -463,7 +324,7 @@ const unescaped_chars = std.StaticStringMap(void).initComptime(.{
 });
 
 /// Operator token types
-const operator_token_types = std.StaticStringMap(TokenType).initComptime(.{
+const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
     // Single char
     .{ "#", .op_hash },
     .{ "$", .op_dollar },
@@ -521,7 +382,7 @@ const operator_token_types = std.StaticStringMap(TokenType).initComptime(.{
 });
 
 /// Keyword token types
-const keyword_token_types = std.StaticStringMap(TokenType).initComptime(.{
+const keyword_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
     // Control flow
     .{ "if", .cf_if },
     .{ "else", .cf_else },

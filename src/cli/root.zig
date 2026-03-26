@@ -15,10 +15,6 @@ const ParseError = error{
 
 /// Parse and handle command line arguments
 pub fn handle(allocator: std.mem.Allocator) !u8 {
-    defer cmd.commands.deinit(allocator);
-    defer cmd.cmd_args.deinit(allocator);
-    defer cmd.cmd_options.deinit(allocator);
-
     // Register commands
     try cmd_build.register(allocator);
     try cmd_help.register(allocator);
