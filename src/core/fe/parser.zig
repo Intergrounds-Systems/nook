@@ -85,7 +85,7 @@ pub const Parser = struct {
         if (self.matches(&[_]types.TokenType{.op_colon})) {
             // Determine pointer type if present
             var ptr_type: ?types.Token = null;
-            if (self.matches(&[_]types.TokenType{ .decl_own, .decl_ref })) {
+            if (self.matches(&[_]types.TokenType{ .ptr_own, .ptr_ref })) {
                 ptr_type = self.previous();
                 _ = try self.consume(.op_left_angle, "Expected '<T>' after 'own' or 'ref'");
             }
@@ -107,7 +107,6 @@ pub const Parser = struct {
                 .dt_f32,
                 .dt_f64,
                 .dt_bool,
-                .dt_void,
                 .identifier,
             })) {
                 log.err("Invalid data type '{s}'", .{self.peek().value});
@@ -296,7 +295,7 @@ pub const Parser = struct {
         return self.primary();
     }
 
-    /// The primary rule; satisfied by `NUMBER | STRING | "true" | "false" | "nil" | "(" expr ")" | IDENTIFIER`
+    /// The primary rule; satisfied by `NUMBER | STRING | "true" | "false" | "(" expr ")" | IDENTIFIER`
     fn primary(self: *Parser) anyerror!*types.Expr {
         // Integer
         if (self.matches(&[_]types.TokenType{.lit_int})) {

@@ -384,6 +384,27 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
 
 /// Keyword token types
 const keyword_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
+    // Literals
+    .{ "true", .lit_true },
+    .{ "false", .lit_false },
+
+    // Data types
+    .{ "u8", .dt_u8 },
+    .{ "u16", .dt_u16 },
+    .{ "u32", .dt_u32 },
+    .{ "u64", .dt_u64 },
+    .{ "uword", .dt_uword },
+    .{ "i8", .dt_i8 },
+    .{ "i16", .dt_i16 },
+    .{ "i32", .dt_i32 },
+    .{ "i64", .dt_i64 },
+    .{ "iword", .dt_iword },
+    .{ "f32", .dt_f32 },
+    .{ "f64", .dt_f64 },
+    .{ "char", .dt_char },
+    .{ "str", .dt_str },
+    .{ "bool", .dt_bool },
+
     // Control flow
     .{ "if", .cf_if },
     .{ "else", .cf_else },
@@ -401,8 +422,8 @@ const keyword_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
     .{ "static", .decl_static },
     .{ "dyn", .decl_dyn },
     .{ "mtd", .decl_mtd },
-    .{ "own", .decl_own },
-    .{ "ref", .decl_ref },
+    .{ "own", .ptr_own },
+    .{ "ref", .ptr_ref },
 
     // Builtin
     .{ "new", .builtin_new },

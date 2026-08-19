@@ -6,7 +6,6 @@ pub const Value = union(enum) {
     val_float: f64,
     val_char: u8,
     val_str: []const u8,
-    val_void: void,
 
     /// Return a string representation of the value
     pub fn string(self: Value, allocator: std.mem.Allocator) []const u8 {
@@ -16,7 +15,6 @@ pub const Value = union(enum) {
             .val_float => |f| std.fmt.allocPrint(allocator, "{d}", .{f}) catch "float",
             .val_char => |c| std.fmt.allocPrint(allocator, "{c}", .{c}) catch "char",
             .val_str => |s| std.fmt.allocPrint(allocator, "{s}", .{s}) catch "string",
-            .val_void => "void",
         };
 
         return std.fmt.allocPrint(allocator, "[{s}: {s}]", .{

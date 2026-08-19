@@ -9,7 +9,7 @@ Function types, signatures, and calling
 * Signatures are in the form `(args...) -> T`
 * Functions take 0 or more arguments
 * Functions return 0 or 1 value
-* Functions that return no value do not have a `-> T` annotation
+* Functions that never return a value do not have a `-> T` annotation
 * The final argument to a function can be variadic
 * Return types can be one of three variants (more info below):
   * **Scalar**: return value only
@@ -69,14 +69,14 @@ Function types, signatures, and calling
 **Optional**
 
 * Return annotation: `-> T?`
-* Return syntax: `return V;` (value), `return none;` (nothing)
+* Return syntax: `return V;` (value), `return;` (nothing)
 * Caller handling:
 ```
 // resolved
 eval res = foo() {
 	// handle value returned
 } else {
-	// handle none returned
+	// handle nothing returned
 }
 
 // raised when calling function has same return type

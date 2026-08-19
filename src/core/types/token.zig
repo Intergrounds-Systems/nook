@@ -110,7 +110,10 @@ pub const TokenType = enum {
     dt_f32,
     dt_f64,
     dt_bool,
-    dt_void,
+
+    // Pointer types
+    ptr_own,
+    ptr_ref,
 
     // Control flow
     cf_if,
@@ -129,8 +132,6 @@ pub const TokenType = enum {
     decl_static,
     decl_dyn,
     decl_mtd,
-    decl_own,
-    decl_ref,
 
     // Builtins
     builtin_new,

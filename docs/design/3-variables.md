@@ -24,7 +24,7 @@ Variable types, constants, and declarations
 * Ownership: **owned or borrowed**
 * Assign as rvalue: **moves**
 * Mutable: **yes**
-* Initialization: **optional**
+* Initialization: **required**
 * Types: **all**
 * Declaration: `var name: own<T> = new T{ V };`
 
