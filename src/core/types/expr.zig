@@ -4,14 +4,13 @@ const value = @import("value.zig");
 
 /// Represents a sequence of tokens that can be evaluated into a result
 pub const Expr = union(enum) {
-    assign: Assign,
     binary: Binary,
     call: Call,
+    construct: Construct,
     get: Get,
     grouping: Grouping,
     literal: Literal,
     logical: Logical,
-    set: Set,
     unary: Unary,
     variable: Variable,
 
@@ -72,6 +71,44 @@ pub const Expr = union(enum) {
                 args,
                 close,
             }) catch "[call]";
+        }
+    };
+
+    pub const Construct = struct {
+        type_id: token.Token,
+        fields: []Field,
+
+        pub const Field = struct {
+            // no name means a positional field
+            name: ?token.Token,
+            value: *Expr,
+
+            /// Return a string representation of the field
+            fn string(self: Field, allocator: std.mem.Allocator) []const u8 {
+                const prefix: []const u8 = if (self.name) |name|
+                    std.fmt.allocPrint(allocator, "{s}: ", .{name.value}) catch ""
+                else
+                    "";
+
+                return std.fmt.allocPrint(allocator, "{s}{s}", .{
+                    prefix,
+                    self.value.string(allocator),
+                }) catch "[field]";
+            }
+        };
+
+        /// Return a string representation of the construct expression
+        fn string(self: Construct, allocator: std.mem.Allocator) []const u8 {
+            var fields: []const u8 = "";
+            for (self.fields, 0..) |field, i| {
+                fields = std.fmt.allocPrint(allocator, "{s}{s}{s}", .{
+                    fields,
+                    field.string(allocator),
+                    if (i < self.fields.len - 1) ", " else "",
+                }) catch fields;
+            }
+
+            return std.fmt.allocPrint(allocator, "[construct: {s}{{{s}}}]", .{ self.type_id.value, fields }) catch "[construct]";
         }
     };
 

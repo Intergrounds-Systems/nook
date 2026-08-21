@@ -8,9 +8,9 @@ Controlling code execution paths
 
 Follow the form:
 ```
-if expr {
+if (expr) {
 	
-} else if expr {
+} else if (expr) {
 	
 } else {
 	
@@ -23,7 +23,7 @@ if expr {
 
 Follow the form:
 ```
-switch expr {
+switch (expr) {
 case tag1:
     // handle expr == tag1
 case tag2, tag3:
@@ -39,7 +39,7 @@ else:
 
 Follow the form:
 ```
-loop [assign;] expr[; expr] {
+loop ([assign;] expr[; expr]) {
 	
 }
 ```

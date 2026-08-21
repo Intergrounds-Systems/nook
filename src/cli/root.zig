@@ -46,8 +46,8 @@ pub fn handle(allocator: std.mem.Allocator) !u8 {
     };
 
     // Null-coalesce this command's supported arguments
-    const cmd_args = command.args orelse &[_]cmd.Arg{};
-    const cmd_options = command.options orelse &[_]cmd.Option{};
+    const cmd_args = command.args orelse &.{};
+    const cmd_options = command.options orelse &.{};
 
     // Parse each user-provided argument
     for (args, 0..) |arg, i| {

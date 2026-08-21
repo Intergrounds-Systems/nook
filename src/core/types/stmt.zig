@@ -4,16 +4,28 @@ const token = @import("token.zig");
 
 /// Represents any valid statement in the language
 pub const Stmt = union(enum) {
-    builtin_clone: *expr.Expr,
-    builtin_copy: *expr.Expr,
     builtin_drop: *expr.Expr,
-    builtin_new: *expr.Expr,
     builtin_print: *expr.Expr,
-
     expression: *expr.Expr,
 
+    assignment: Assignment,
     package: Package,
     variable: Variable,
+
+    const Assignment = struct {
+        target: *expr.Expr,
+        operator: token.Token,
+        value: *expr.Expr,
+
+        /// Return a string representation of the assignment statement
+        fn string(self: Assignment, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "{s} {s} {s}", .{
+                self.target.string(allocator),
+                self.operator.value,
+                self.value.string(allocator),
+            }) catch "[assignment]";
+        }
+    };
 
     const Package = struct {
         identifier: token.Token,
@@ -55,13 +67,13 @@ pub const Stmt = union(enum) {
 
         const node = switch (self) {
             // Statements that just contain an expression
-            .builtin_clone,
-            .builtin_copy,
             .builtin_drop,
-            .builtin_new,
             .builtin_print,
             .expression,
             => |e| e.string(allocator),
+
+            // Assignment statement
+            .assignment => |a| a.string(allocator),
 
             // Package statement
             .package => |p| p.string(),

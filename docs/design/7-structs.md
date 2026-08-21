@@ -37,6 +37,19 @@ var foobar = FooBar {
 };
 ```
 
+Instantiation also supports untagged positional initialization:
+```
+struct BazBop {
+	var baz: u32;
+	var bop: i16;
+}
+
+var bazbop = BazBop {
+	8743,  // baz
+	35,    // bop
+};
+```
+
 ---
 
 ## Accessing Instance Members
@@ -49,7 +62,7 @@ var person = Person {
 	name: "Dave",
 };
 
-println(person.name);
+print(person.name);
 ```
 
 Access from within the instance uses no prefix:
@@ -58,7 +71,7 @@ struct Person {
 	var name: str;
 
 	mtd greet() {
-		println("Hello, I am " + .name);
+		print("Hello, I am " + .name);
 	}
 }
 ```

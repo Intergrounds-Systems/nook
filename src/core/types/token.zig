@@ -53,8 +53,6 @@ pub const TokenType = enum {
     op_and, // &
     op_and_and, // &&
     op_and_equals, // &=
-    op_star, // *
-    op_star_equals, // *=
     op_plus, // +
     op_plus_equals, // +=
     op_minus, // -
@@ -67,13 +65,14 @@ pub const TokenType = enum {
     op_colon_colon, // ::
     op_equals, // =
     op_equals_equals, // ==
-    op_caret, // ^
-    op_caret_equals, // ^=
     op_pipe, // |
     op_pipe_equals, // |=
     op_pipe_pipe, // ||
     op_tilde, // ~
     op_tilde_equals, // ~=
+    op_caret, // ^
+    op_caret_caret, // ^^
+    op_caret_equals, // ^=
 
     // Single, double, or triple-char operators by initial char
     op_left_angle, // <
@@ -84,6 +83,10 @@ pub const TokenType = enum {
     op_greater_or_equals, // >=
     op_right_shift, // >>
     op_right_shift_equals, // >>=
+    op_star, // *
+    op_star_equals, // *=
+    op_star_star, // **
+    op_star_star_equals, // **=
 
     // Literals
     identifier, // begins with a-zA-Z

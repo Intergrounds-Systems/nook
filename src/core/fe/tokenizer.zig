@@ -80,7 +80,7 @@ pub const Tokenizer = struct {
         if (isQuote(self.cur)) return self.readQuote();
 
         // Scanning an operator
-        if (operator_token_types.get(&[_]u8{self.cur})) |op| return self.readOperator(op);
+        if (operator_token_types.get(&.{self.cur})) |op| return self.readOperator(op);
 
         // Scanned an unrecognized token
         log.err("Unrecognized character '{c}' on line {d} col {d}", .{
@@ -216,7 +216,7 @@ pub const Tokenizer = struct {
     /// Read an operator; an operator can be 1, 2, or 3 chars long
     fn readOperator(self: *Tokenizer, base_type: types.TokenType) types.Token {
         var token_type = base_type;
-        var buffer: []const u8 = &[_]u8{self.cur};
+        var buffer: []const u8 = &.{self.cur};
         var to_scan: usize = 0;
 
         // Check up to the 3 chars from the current position
@@ -347,8 +347,6 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ "|=", .op_pipe_equals },
     .{ "||", .op_pipe_pipe },
     .{ "|", .op_pipe },
-    .{ "^=", .op_caret_equals },
-    .{ "^", .op_caret },
     .{ "==", .op_equals_equals },
     .{ "=", .op_equals },
     .{ "::", .op_colon_colon },
@@ -361,8 +359,6 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ "-", .op_minus },
     .{ "+=", .op_plus_equals },
     .{ "+", .op_plus },
-    .{ "*=", .op_star_equals },
-    .{ "*", .op_star },
     .{ "&=", .op_and_equals },
     .{ "&&", .op_and_and },
     .{ "&", .op_and },
@@ -370,6 +366,9 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ "%", .op_percent },
     .{ "!=", .op_bang_equals },
     .{ "!", .op_bang },
+    .{ "^=", .op_caret_equals },
+    .{ "^^", .op_caret_caret },
+    .{ "^", .op_caret },
 
     // Single, double and triple-char
     .{ "<<=", .op_left_shift_equals },
@@ -380,6 +379,10 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ ">>", .op_right_shift },
     .{ ">=", .op_greater_or_equals },
     .{ ">", .op_right_angle },
+    .{ "**", .op_star_star },
+    .{ "**=", .op_star_star_equals },
+    .{ "*=", .op_star_equals },
+    .{ "*", .op_star },
 });
 
 /// Keyword token types

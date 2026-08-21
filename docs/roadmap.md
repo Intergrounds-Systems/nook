@@ -11,7 +11,7 @@
 - Default allocation behavior
   - Local: stack
   - Global: static
-- Explicit heap allocation with `new()`
+- Explicit heap allocation with `new`
   - Creates an owned variable
 
 **Ownership**
@@ -19,8 +19,8 @@
   - Assignment of owned variables moves ownership and invalidates previous owner
 - Explicit copy rules
   - Shallow copy value types with assignment
-  - Deep copy pointers and structs with inner ownership with `clone()`
-  - Require type to implement a `Clonable` interface for `clone()`
+  - Deep copy pointers and structs with inner ownership with `clone`
+  - Require type to implement a `Clonable` interface for `clone`
 
 **RAII**
 - When values are dropped

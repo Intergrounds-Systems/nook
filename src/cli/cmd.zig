@@ -41,8 +41,8 @@ pub const Command = struct {
         });
 
         // Null-coalesce args and options
-        const args = self.args orelse &[_]Arg{};
-        const options = self.options orelse &[_]Option{};
+        const args = self.args orelse &.{};
+        const options = self.options orelse &.{};
 
         // List positional arguments in usage string if this command has them
         for (args) |arg| {

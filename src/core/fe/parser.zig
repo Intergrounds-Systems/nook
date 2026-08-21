@@ -10,6 +10,26 @@ pub const ParserError = error{
     ParseFailed,
 };
 
+/// Token types representing primitive or user-defined data types
+const data_types = [_]types.TokenType{
+    .dt_str,
+    .dt_char,
+    .dt_u8,
+    .dt_u16,
+    .dt_u32,
+    .dt_u64,
+    .dt_uword,
+    .dt_i8,
+    .dt_i16,
+    .dt_i32,
+    .dt_i64,
+    .dt_iword,
+    .dt_f32,
+    .dt_f64,
+    .dt_bool,
+    .identifier,
+};
+
 /// The parser
 pub const Parser = struct {
     allocator: std.mem.Allocator,
@@ -41,11 +61,11 @@ pub const Parser = struct {
 
     /// The declaration rule; lowest precedence, satisfied by any declaration, statement, or expression
     fn declaration(self: *Parser) ?*types.Stmt {
-        if (self.matches(&[_]types.TokenType{.comment})) return null;
+        if (self.matches(&.{.comment})) return null;
 
-        const stmt = if (self.matches(&[_]types.TokenType{.decl_var}))
+        const stmt = if (self.matches(&.{.decl_var}))
             self.varDeclaration()
-        else if (self.matches(&[_]types.TokenType{.decl_pkg}))
+        else if (self.matches(&.{.decl_pkg}))
             self.pkgDeclaration()
         else
             self.statement();
@@ -82,37 +102,21 @@ pub const Parser = struct {
 
         // Detect type annotation
         var type_annotation: ?types.TypeAnnotation = null;
-        if (self.matches(&[_]types.TokenType{.op_colon})) {
+        if (self.matches(&.{.op_colon})) {
             // Determine pointer type if present
             var ptr_type: ?types.Token = null;
-            if (self.matches(&[_]types.TokenType{ .ptr_own, .ptr_ref })) {
+            if (self.matches(&.{ .ptr_own, .ptr_ref })) {
                 ptr_type = self.previous();
                 _ = try self.consume(.op_left_angle, "Expected '<T>' after 'own' or 'ref'");
             }
 
             // Determine data type
-            if (!self.matches(&[_]types.TokenType{
-                .dt_str,
-                .dt_char,
-                .dt_u8,
-                .dt_u16,
-                .dt_u32,
-                .dt_u64,
-                .dt_uword,
-                .dt_i8,
-                .dt_i16,
-                .dt_i32,
-                .dt_i64,
-                .dt_iword,
-                .dt_f32,
-                .dt_f64,
-                .dt_bool,
-                .identifier,
-            })) {
+            if (!self.matches(&data_types)) {
                 log.err("Invalid data type '{s}'", .{self.peek().value});
                 return ParserError.InvalidDataType;
             }
 
+            // Commit data type and close pointer annotation
             const type_id = self.previous();
             if (ptr_type) |_| _ = try self.consume(.op_right_angle, "Missing '>' after type annotation");
 
@@ -124,7 +128,7 @@ pub const Parser = struct {
 
         // Detect initializer
         var initializer: ?*types.Expr = null;
-        if (self.matches(&[_]types.TokenType{.op_equals})) {
+        if (self.matches(&.{.op_equals})) {
             initializer = try self.expression();
         }
 
@@ -148,20 +152,14 @@ pub const Parser = struct {
         var stmt_type: ?types.TokenType = null;
 
         // Detect builtins
-        if (self.matches(&[_]types.TokenType{
-            .builtin_clone,
-            .builtin_copy,
+        if (self.matches(&.{
             .builtin_drop,
-            .builtin_new,
             .builtin_print,
         })) stmt_type = self.previous().token_type;
 
         const expr = try self.innerExpression();
         stmt.* = switch (stmt_type orelse .eof) {
-            .builtin_clone => .{ .builtin_clone = expr },
-            .builtin_copy => .{ .builtin_copy = expr },
             .builtin_drop => .{ .builtin_drop = expr },
-            .builtin_new => .{ .builtin_new = expr },
             .builtin_print => .{ .builtin_print = expr },
             else => .{ .expression = expr },
         };
@@ -180,16 +178,73 @@ pub const Parser = struct {
     // Expression parsing rules
     // ------------------------
 
-    /// The expression rule; lowest precedence, satisfied by `equality`
+    /// The expression rule; lowest precedence, satisfied by `logicalOr`
     fn expression(self: *Parser) anyerror!*types.Expr {
-        return self.equality();
+        return self.logicalOr();
+    }
+
+    /// The logical OR rule; satisfied by `logicalXor ( "||" logicalXor )*`
+    fn logicalOr(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.logicalXor();
+
+        while (self.matches(&.{.op_pipe_pipe})) {
+            const operator = self.previous();
+            const right = try self.logicalXor();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .logical = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The logical XOR rule; satisfied by `logicalAnd ( "^^" logicalAnd )*`
+    fn logicalXor(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.logicalAnd();
+
+        while (self.matches(&.{.op_caret_caret})) {
+            const operator = self.previous();
+            const right = try self.logicalAnd();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .logical = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The logical AND rule; satisfied by `equality ( "&&" equality )*`
+    fn logicalAnd(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.equality();
+
+        while (self.matches(&.{.op_and_and})) {
+            const operator = self.previous();
+            const right = try self.equality();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .logical = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
     }
 
     /// The equality rule; satisfied by `comparison (( "!=" | "==" ) comparison )*`
     fn equality(self: *Parser) anyerror!*types.Expr {
         var expr = try self.comparison();
 
-        while (self.matches(&[_]types.TokenType{
+        while (self.matches(&.{
             .op_bang_equals,
             .op_equals_equals,
         })) {
@@ -207,16 +262,92 @@ pub const Parser = struct {
         return expr;
     }
 
-    /// The comparison rule; satisfied by `term (( ">" | ">=" | "<" | "<=" ) term )*`
+    /// The comparison rule; satisfied by `bitwiseOr (( ">" | ">=" | "<" | "<=" ) bitwiseOr )*`
     fn comparison(self: *Parser) anyerror!*types.Expr {
-        var expr = try self.term();
+        var expr = try self.bitwiseOr();
 
-        while (self.matches(&[_]types.TokenType{
+        while (self.matches(&.{
             .op_right_angle,
             .op_greater_or_equals,
             .op_left_angle,
             .op_less_or_equals,
         })) {
+            const operator = self.previous();
+            const right = try self.bitwiseOr();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .binary = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The bitwise OR rule; satisfied by `bitwiseXor ( "|" bitwiseXor )*`
+    fn bitwiseOr(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.bitwiseXor();
+
+        while (self.matches(&.{.op_pipe})) {
+            const operator = self.previous();
+            const right = try self.bitwiseXor();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .binary = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The bitwise XOR rule; satisfied by `bitwiseAnd ( "^" bitwiseAnd )*`
+    fn bitwiseXor(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.bitwiseAnd();
+
+        while (self.matches(&.{.op_caret})) {
+            const operator = self.previous();
+            const right = try self.bitwiseAnd();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .binary = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The bitwise AND rule; satisfied by `shift ( "&" shift )*`
+    fn bitwiseAnd(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.shift();
+
+        while (self.matches(&.{.op_and})) {
+            const operator = self.previous();
+            const right = try self.shift();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .binary = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The bit shift rule; satisfied by `term (( ">>" | "<<" ) term )*`
+    fn shift(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.term();
+
+        while (self.matches(&.{ .op_right_shift, .op_left_shift })) {
             const operator = self.previous();
             const right = try self.term();
             const node = try self.allocator.create(types.Expr);
@@ -235,7 +366,7 @@ pub const Parser = struct {
     fn term(self: *Parser) anyerror!*types.Expr {
         var expr = try self.factor();
 
-        while (self.matches(&[_]types.TokenType{
+        while (self.matches(&.{
             .op_minus,
             .op_plus,
         })) {
@@ -253,13 +384,14 @@ pub const Parser = struct {
         return expr;
     }
 
-    /// The factor rule; satisfied by `unary (( "/" | "*" ) unary )*`
+    /// The factor rule; satisfied by `unary (( "/" | "*" | "%" ) unary )*`
     fn factor(self: *Parser) anyerror!*types.Expr {
         var expr = try self.unary();
 
-        while (self.matches(&[_]types.TokenType{
+        while (self.matches(&.{
             .op_slash,
             .op_star,
+            .op_percent,
         })) {
             const operator = self.previous();
             const right = try self.unary();
@@ -275,11 +407,15 @@ pub const Parser = struct {
         return expr;
     }
 
-    /// The unary rule; satisfied by `("!" | "-") unary | primary`
+    /// The unary rule; satisfied by `( "!" | "-" | "~" | "new" | "copy" | "clone" ) unary | exponent`
     fn unary(self: *Parser) anyerror!*types.Expr {
-        if (self.matches(&[_]types.TokenType{
+        if (self.matches(&.{
             .op_bang,
             .op_minus,
+            .op_tilde,
+            .builtin_new,
+            .builtin_copy,
+            .builtin_clone,
         })) {
             const operator = self.previous();
             const operand = try self.unary();
@@ -292,13 +428,52 @@ pub const Parser = struct {
             return expr;
         }
 
+        return self.exponent();
+    }
+
+    /// The exponent rule; satisfied by `pointer ( "**" unary )`
+    fn exponent(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.pointer();
+
+        if (self.matches(&.{.op_star_star})) {
+            const operator = self.previous();
+            const right = try self.unary();
+            const node = try self.allocator.create(types.Expr);
+            node.* = .{ .binary = .{
+                .left = expr,
+                .operator = operator,
+                .right = right,
+            } };
+            expr = node;
+        }
+
+        return expr;
+    }
+
+    /// The pointer rule; satisfied by `( "$" | "#" ) pointer | primary`
+    fn pointer(self: *Parser) anyerror!*types.Expr {
+        if (self.matches(&.{
+            .op_dollar,
+            .op_hash,
+        })) {
+            const operator = self.previous();
+            const operand = try self.pointer();
+            const expr = try self.allocator.create(types.Expr);
+            expr.* = .{ .unary = .{
+                .operator = operator,
+                .operand = operand,
+            } };
+
+            return expr;
+        }
+
         return self.primary();
     }
 
-    /// The primary rule; satisfied by `NUMBER | STRING | "true" | "false" | "(" expr ")" | IDENTIFIER`
+    /// The primary rule; satisfied by `NUMBER | CHAR | STRING | "true" | "false" | construct | "(" expr ")" | IDENTIFIER`
     fn primary(self: *Parser) anyerror!*types.Expr {
         // Integer
-        if (self.matches(&[_]types.TokenType{.lit_int})) {
+        if (self.matches(&.{.lit_int})) {
             const int_val = try std.fmt.parseInt(i64, self.previous().value, 10);
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_int = int_val } } };
@@ -307,7 +482,7 @@ pub const Parser = struct {
         }
 
         // Float
-        if (self.matches(&[_]types.TokenType{.lit_float})) {
+        if (self.matches(&.{.lit_float})) {
             const float_val = try std.fmt.parseFloat(f64, self.previous().value);
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_float = float_val } } };
@@ -316,7 +491,7 @@ pub const Parser = struct {
         }
 
         // Char
-        if (self.matches(&[_]types.TokenType{.lit_char})) {
+        if (self.matches(&.{.lit_char})) {
             const char_val = self.previous().value[0];
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_char = char_val } } };
@@ -325,7 +500,7 @@ pub const Parser = struct {
         }
 
         // String
-        if (self.matches(&[_]types.TokenType{.lit_str})) {
+        if (self.matches(&.{.lit_str})) {
             const str_val = self.previous().value;
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_str = str_val } } };
@@ -334,7 +509,7 @@ pub const Parser = struct {
         }
 
         // Bool
-        if (self.matches(&[_]types.TokenType{ .lit_true, .lit_false })) {
+        if (self.matches(&.{ .lit_true, .lit_false })) {
             const bool_val = std.mem.eql(u8, self.previous().value, "true");
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .literal = .{ .value = .{ .val_bool = bool_val } } };
@@ -342,8 +517,11 @@ pub const Parser = struct {
             return expr;
         }
 
+        // Construct
+        if (self.checkNext(&.{.op_left_brace}) and self.matches(&data_types)) return self.construct();
+
         // Identifier
-        if (self.matches(&[_]types.TokenType{.identifier})) {
+        if (self.matches(&.{.identifier})) {
             const expr = try self.allocator.create(types.Expr);
             expr.* = .{ .variable = .{ .name = self.previous() } };
 
@@ -351,7 +529,7 @@ pub const Parser = struct {
         }
 
         // Expression grouping
-        if (self.matches(&[_]types.TokenType{.op_left_paren})) {
+        if (self.matches(&.{.op_left_paren})) {
             const expr = try self.expression();
             _ = try self.consume(.op_right_paren, "Expected ')' after expression");
 
@@ -367,6 +545,37 @@ pub const Parser = struct {
             self.peek().col,
         });
         return ParserError.ExpectedExpression;
+    }
+
+    /// The construct rule; satisfied by `( T | IDENTIFIER ) "{" ( FIELDS... ) "}"`
+    fn construct(self: *Parser) anyerror!*types.Expr {
+        const type_id = self.previous();
+        _ = try self.consume(.op_left_brace, "Expected '{' after type in construct");
+
+        // Harvest the fields
+        var fields: std.ArrayList(types.Expr.Construct.Field) = .empty;
+        while (!self.done() and !self.check(&.{.op_right_brace})) {
+            var name: ?types.Token = null;
+
+            // Look for field names in the format of <name>:
+            if (self.check(&.{.identifier}) and self.checkNext(&.{.op_colon})) {
+                name = self.advance();
+                _ = self.advance(); // consume the colon
+            }
+
+            try fields.append(self.allocator, .{ .name = name, .value = try self.expression() });
+            if (!self.matches(&.{.op_comma})) break;
+        }
+
+        // Consume the closing brace and yield the construct
+        _ = try self.consume(.op_right_brace, "Expected '}' after construct members");
+        const expr = try self.allocator.create(types.Expr);
+        expr.* = .{ .construct = .{
+            .type_id = type_id,
+            .fields = try fields.toOwnedSlice(self.allocator),
+        } };
+
+        return expr;
     }
 
     // Parsing utils
@@ -402,7 +611,7 @@ pub const Parser = struct {
     /// Check if the current token is of the given type and consume it if it is,
     /// but emit an error with the given message if it is not
     fn consume(self: *Parser, token_type: types.TokenType, error_msg: []const u8) ParserError!types.Token {
-        if (self.check(token_type)) return self.advance();
+        if (self.check(&.{token_type})) return self.advance();
 
         log.err("{s} on line {d} col {d}", .{
             error_msg,
@@ -412,22 +621,28 @@ pub const Parser = struct {
         return ParserError.UnexpectedToken;
     }
 
-    /// Check if the current token is of any of the given types and consume it if it is
-    fn matches(self: *Parser, token_types: []const types.TokenType) bool {
-        for (token_types) |token_type| {
-            if (self.check(token_type)) {
-                _ = self.advance();
-                return true;
-            }
-        }
-
+    /// Check if the current token is of any of the given types
+    fn check(self: *Parser, token_types: []const types.TokenType) bool {
+        if (self.done()) return false;
+        for (token_types) |token_type| if (self.peek().token_type == token_type) return true;
         return false;
     }
 
-    /// Check if the current token is of the given type
-    fn check(self: *Parser, token_type: types.TokenType) bool {
+    /// Check if the token after the current one is of any of the given types
+    fn checkNext(self: *Parser, token_types: []const types.TokenType) bool {
         if (self.done()) return false;
-        return self.peek().token_type == token_type;
+        for (token_types) |token_type| if (self.tokens[self.pos + 1].token_type == token_type) return true;
+        return false;
+    }
+
+    /// Consume the current token if it is of any of the given types
+    fn matches(self: *Parser, token_types: []const types.TokenType) bool {
+        if (self.check(token_types)) {
+            _ = self.advance();
+            return true;
+        }
+
+        return false;
     }
 
     /// Advance the parser to the next token and yield the current token
