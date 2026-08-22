@@ -9,6 +9,7 @@ pub const Stmt = union(enum) {
     expression: *expr.Expr,
 
     assignment: Assignment,
+    block: Block,
     package: Package,
     variable: Variable,
 
@@ -27,11 +28,35 @@ pub const Stmt = union(enum) {
         }
     };
 
+    const Block = struct {
+        statements: []*Stmt,
+
+        /// Return a string representation of the block statement
+        fn string(self: Block, allocator: std.mem.Allocator) []const u8 {
+            var statements: []const u8 = "";
+            for (self.statements, 0..) |statement, i| {
+                // Indent nested statements
+                const rendered = statement.string(allocator);
+                const indented = std.mem.replaceOwned(u8, allocator, rendered, "\n", "\n\t") catch rendered;
+
+                statements = std.fmt.allocPrint(allocator, "{s}\t{s}{s}", .{
+                    statements,
+                    indented,
+                    if (i < self.statements.len - 1) "\n" else "",
+                }) catch statements;
+            }
+
+            return std.fmt.allocPrint(allocator, "[block: {{\n{s}\n}}]", .{
+                statements,
+            }) catch "[block]";
+        }
+    };
+
     const Package = struct {
         identifier: token.Token,
 
         /// Return a string representation of the package statement
-        fn string(self: Package) []const u8 {
+        fn string(self: Package, _: std.mem.Allocator) []const u8 {
             return self.identifier.value;
         }
     };
@@ -66,20 +91,7 @@ pub const Stmt = union(enum) {
         const tag = @tagName(self);
 
         const node = switch (self) {
-            // Statements that just contain an expression
-            .builtin_drop,
-            .builtin_print,
-            .expression,
-            => |e| e.string(allocator),
-
-            // Assignment statement
-            .assignment => |a| a.string(allocator),
-
-            // Package statement
-            .package => |p| p.string(),
-
-            // Variable statement
-            .variable => |v| v.string(allocator),
+            inline else => |n| n.string(allocator),
         };
 
         return std.fmt.allocPrint(allocator, "<{s}> {s}", .{

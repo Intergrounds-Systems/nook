@@ -108,7 +108,10 @@ pub const Expr = union(enum) {
                 }) catch fields;
             }
 
-            return std.fmt.allocPrint(allocator, "[construct: {s}{{{s}}}]", .{ self.type_id.value, fields }) catch "[construct]";
+            return std.fmt.allocPrint(allocator, "[construct: {s}{{{s}}}]", .{
+                self.type_id.value,
+                fields,
+            }) catch "[construct]";
         }
     };
 

@@ -52,6 +52,7 @@ pub const Parser = struct {
     allocator: std.mem.Allocator,
     tokens: []types.Token,
     pos: usize = 0,
+    depth: usize = 0,
     ok: bool = true,
 
     /// Create a Parser with the given allocator and token stream
@@ -163,8 +164,11 @@ pub const Parser = struct {
     // Statement parsing rules
     // -----------------------
 
-    /// The statement rule; lowest precedence, satisfied by any statement or expression
+    /// The statement rule; satisfied by any statement or expression
     fn statement(self: *Parser) anyerror!*types.Stmt {
+        // Detect blocks
+        if (self.check(&.{.op_left_brace})) return self.block();
+
         const stmt = try self.allocator.create(types.Stmt);
         var stmt_type: ?types.TokenType = null;
 
@@ -211,6 +215,27 @@ pub const Parser = struct {
             .builtin_print => .{ .builtin_print = expr },
             else => .{ .expression = expr },
         };
+
+        return stmt;
+    }
+
+    /// The block rule; satisfied by `"{" ( DECLARATIONS... ) "}"
+    fn block(self: *Parser) anyerror!*types.Stmt {
+        _ = try self.consume(.op_left_brace, "Expected '{' to open block");
+        self.depth += 1;
+
+        // Collect inner statements, parses up because each block is a fresh scope that can contain declarations
+        var statements: std.ArrayList(*types.Stmt) = .empty;
+        while (!self.done() and !self.check(&.{.op_right_brace}))
+            if (self.declaration()) |stmt|
+                try statements.append(self.allocator, stmt);
+
+        self.depth -= 1;
+        _ = try self.consume(.op_right_brace, "Expected '}' after block body");
+        const stmt = try self.allocator.create(types.Stmt);
+        stmt.* = .{ .block = .{
+            .statements = try statements.toOwnedSlice(self.allocator),
+        } };
 
         return stmt;
     }
@@ -663,9 +688,10 @@ pub const Parser = struct {
 
     /// Synchronize on the next expression boundary when errors are found
     fn synchronize(self: *Parser) void {
-        _ = self.advance();
+        if (!self.doneBlock()) _ = self.advance();
 
         while (!self.done()) {
+            if (self.doneBlock()) return;
             if (self.previous().token_type == .op_semicolon) return;
 
             switch (self.peek().token_type) {
@@ -734,6 +760,11 @@ pub const Parser = struct {
     /// Check if the parser has reached the end of the token stream
     fn done(self: *Parser) bool {
         return self.peek().token_type == .eof;
+    }
+
+    /// Check if the parser is at the end of a block
+    fn doneBlock(self: *Parser) bool {
+        return self.depth > 0 and self.check(&.{.op_right_brace});
     }
 
     /// Yield the current token
