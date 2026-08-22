@@ -88,7 +88,7 @@
 - [ ] Arithmetic, bitwise, comparison, and logical expressions
 - [ ] Variable declaration and definition
 - [ ] Function definition and calling
-- [ ] Flow control
+- [ ] Control flow
 - [ ] Heap allocation
 - [ ] Structs
 

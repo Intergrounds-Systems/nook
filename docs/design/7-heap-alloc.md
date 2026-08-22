@@ -17,4 +17,4 @@ Creating and using pointer values
 
 ---
 
-⬅️ [Flow Control](./5-flow-control.md) | [Structs](./7-structs.md) ➡️
+⬅️ [Control Flow](./6-control-flow.md) | [Structs](./8-structs.md) ➡️

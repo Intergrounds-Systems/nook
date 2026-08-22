@@ -1,6 +1,6 @@
 # Expressions
 
-Various expression types and operators
+Various expression types and operators; expressions are statements that output a value.
 
 ---
 
@@ -81,13 +81,4 @@ Loosest to tightest. All binary operators are left associative except `**`.
 |  | postfix | `() . ? !` |
 | highest | primary | literals, identifiers, constructions, groupings |
 
----
-
-## Builtin Statements
-
-These builtins are statement prefixes; they do not produce an output, but they have side effects based on their input.
-
-* `print`: write the input to stdout (likely temporary until stdlib IO is implemented)
-* `drop`: frees an owned pointer's data from memory
-
-⬅️ [Data Types](./1-data-types.md) | [Variables and Constants](./3-variables.md) ➡️
+⬅️ [Statements](./2-statements.md) | [Variables and Constants](./4-variables.md) ➡️

@@ -1,5 +1,7 @@
 # Nook
 
+<img src="./assets/logo.svg"></img>
+
 An experimental programming language project.
 
 **Current Status:** *C transpiler skeleton development*

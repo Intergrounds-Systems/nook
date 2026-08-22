@@ -102,4 +102,4 @@ var res = foo()!;
 
 ---
 
-⬅️ [Variables and Constants](./3-variables.md) | [Flow Control](./5-flow-control.md) ➡️
+⬅️ [Variables and Constants](./4-variables.md) | [Control Flow](./6-control-flow.md) ➡️

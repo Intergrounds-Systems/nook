@@ -7,6 +7,7 @@ pub const ParserError = error{
     UnexpectedToken,
     ExpectedExpression,
     InvalidDataType,
+    InvalidAssignmentTarget,
     ParseFailed,
 };
 
@@ -28,6 +29,22 @@ const data_types = [_]types.TokenType{
     .dt_f64,
     .dt_bool,
     .identifier,
+};
+
+/// Token types representing the assignment operators
+const assign_ops = [_]types.TokenType{
+    .op_equals,
+    .op_plus_equals,
+    .op_minus_equals,
+    .op_star_equals,
+    .op_star_star_equals,
+    .op_slash_equals,
+    .op_percent_equals,
+    .op_pipe_equals,
+    .op_and_equals,
+    .op_caret_equals,
+    .op_left_shift_equals,
+    .op_right_shift_equals,
 };
 
 /// The parser
@@ -151,13 +168,44 @@ pub const Parser = struct {
         const stmt = try self.allocator.create(types.Stmt);
         var stmt_type: ?types.TokenType = null;
 
-        // Detect builtins
+        // Detect builtin statements
         if (self.matches(&.{
             .builtin_drop,
             .builtin_print,
         })) stmt_type = self.previous().token_type;
 
-        const expr = try self.innerExpression();
+        // Grab the expression and check for assignments
+        const expr = try self.expression();
+        if (stmt_type == null and self.matches(&assign_ops)) {
+            const operator = self.previous();
+
+            // Validate target of assignment
+            switch (expr.*) {
+                .variable, .get => {},
+                else => {
+                    log.err("Invalid assignment target of '{s}' on line {d} col {d}", .{
+                        operator.value,
+                        operator.line,
+                        operator.col,
+                    });
+                    return ParserError.InvalidAssignmentTarget;
+                },
+            }
+
+            // Get value of assignment
+            const value = try self.expression();
+            _ = try self.consume(.op_semicolon, "Expected ';' after assignment");
+            stmt.* = .{ .assignment = .{
+                .target = expr,
+                .operator = operator,
+                .value = value,
+            } };
+
+            return stmt;
+        }
+
+        // Fallthrough: not an assignment statement
+        _ = try self.consume(.op_semicolon, "Expected ';' after expression");
         stmt.* = switch (stmt_type orelse .eof) {
             .builtin_drop => .{ .builtin_drop = expr },
             .builtin_print => .{ .builtin_print = expr },
@@ -165,14 +213,6 @@ pub const Parser = struct {
         };
 
         return stmt;
-    }
-
-    /// The inner expression rule; connects expression-containing statements with expression parsing
-    fn innerExpression(self: *Parser) anyerror!*types.Expr {
-        const expr = try self.expression();
-        _ = try self.consume(.op_semicolon, "Expected ';' after expression");
-
-        return expr;
     }
 
     // Expression parsing rules
@@ -450,7 +490,7 @@ pub const Parser = struct {
         return expr;
     }
 
-    /// The pointer rule; satisfied by `( "$" | "#" ) pointer | primary`
+    /// The pointer rule; satisfied by `( "$" | "#" ) pointer | postfix`
     fn pointer(self: *Parser) anyerror!*types.Expr {
         if (self.matches(&.{
             .op_dollar,
@@ -467,7 +507,47 @@ pub const Parser = struct {
             return expr;
         }
 
-        return self.primary();
+        return self.postfix();
+    }
+
+    /// The postfix rule; satisfied by `primary ( "(" ARGS... ")" | "." IDENTIFIER )*`
+    fn postfix(self: *Parser) anyerror!*types.Expr {
+        var expr = try self.primary();
+
+        while (true) {
+            if (self.matches(&.{.op_left_paren})) {
+                // Match on the parens-args shape
+                const paren = self.previous();
+
+                // Harvest the arguments
+                var args: std.ArrayList(*types.Expr) = .empty;
+                while (!self.done() and !self.check(&.{.op_right_paren})) {
+                    try args.append(self.allocator, try self.expression());
+                    if (!self.matches(&.{.op_comma})) break;
+                }
+                _ = try self.consume(.op_right_paren, "Expected ')' after arguments");
+
+                // Create the node
+                const node = try self.allocator.create(types.Expr);
+                node.* = .{ .call = .{
+                    .callee = expr,
+                    .paren = paren,
+                    .args = try args.toOwnedSlice(self.allocator),
+                } };
+                expr = node;
+            } else if (self.matches(&.{.op_dot})) {
+                // Match on the dot-identifier shape
+                const field = try self.consume(.identifier, "Expected field name after '.'");
+                const node = try self.allocator.create(types.Expr);
+                node.* = .{ .get = .{
+                    .instance = expr,
+                    .field = field,
+                } };
+                expr = node;
+            } else break;
+        }
+
+        return expr;
     }
 
     /// The primary rule; satisfied by `NUMBER | CHAR | STRING | "true" | "false" | construct | "(" expr ")" | IDENTIFIER`

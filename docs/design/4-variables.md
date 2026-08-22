@@ -69,4 +69,4 @@ Variable types, constants, and declarations
 
 ---
 
-⬅️ [Expressions](./2-expressions.md) | [Functions](4-functions.md) ➡️
+⬅️ [Expressions](./3-expressions.md) | [Functions](./5-functions.md) ➡️

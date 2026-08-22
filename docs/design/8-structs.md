@@ -78,4 +78,4 @@ struct Person {
 
 ---
 
-⬅️ [Heap Allocation](./6-heap-alloc.md)
+⬅️ [Heap Allocation](./7-heap-alloc.md)

@@ -1,4 +1,4 @@
-# Flow Control
+# Control Flow
 
 Controlling code execution paths
 
@@ -46,4 +46,4 @@ loop ([assign;] expr[; expr]) {
 
 ---
 
-⬅️ [Functions](./4-functions.md) | [Heap Allocation](./6-heap-alloc.md) ➡️
+⬅️ [Functions](./5-functions.md) | [Heap Allocation](./7-heap-alloc.md) ➡️

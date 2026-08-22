@@ -52,4 +52,4 @@ All types are truthy when their value is anything other than their default value
 
 ---
 
-⬅️ [Conventions](./0-conventions.md) | [Expressions](./2-expressions.md) ➡️
+⬅️ [Conventions](./0-conventions.md) | [Statements](./2-statements.md) ➡️
