@@ -17,32 +17,24 @@ if (expr) {
 }
 ```
 
----
-
-## Switch Blocks
-
-Follow the form:
-```
-switch (expr) {
-case tag1:
-    // handle expr == tag1
-case tag2, tag3:
-    // handle expr == tag2 || expr == tag3
-else:
-    // handle all other cases
-}
-```
+* _note_: `if` and `loop` can be combined in the same block
 
 ---
 
-## Loops
+## Loop Blocks
 
 Follow the form:
 ```
-loop ([assign;] expr[; expr]) {
+loop (expr) {
 	
+} else loop (expr) {
+
+} else {
+
 }
 ```
+
+The `loop` branch executes while its `expr` resolves to truthy. If it resolves to falsy, the next else branch is considered (bare `else` is only truthy on first test). The `loop` statement is an `if` statement with repeating branches.
 
 ---
 

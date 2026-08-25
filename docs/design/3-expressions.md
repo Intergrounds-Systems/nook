@@ -17,7 +17,7 @@ Various expression types and operators; expressions are statements that output a
 
 ## Logic
 
-* `!`:  not (overloads as errorable func return in postfix position)
+* `!`:  not
 * `&&`: and
 * `||`: or
 * `^^`: xor
@@ -78,7 +78,7 @@ Loosest to tightest. All binary operators are left associative except `**`.
 |  | unary | `! ~ - new copy clone` |
 |  | exponent | `**` (right associative) |
 |  | pointer | `$ #` |
-|  | postfix | `() . ? !` |
+|  | postfix | `() .` |
 | highest | primary | literals, identifiers, constructions, groupings |
 
 ⬅️ [Statements](./2-statements.md) | [Variables and Constants](./4-variables.md) ➡️

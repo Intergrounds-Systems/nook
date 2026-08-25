@@ -51,7 +51,7 @@ Variable types, constants, and declarations
 * Assign as rvalue: **copies**
 * Mutable: **no**
 * Initialization: **required**
-* Types: **primitives**
+* Types: **primitives, functions**
 * Declaration: `const NAME: T = V;`
 
 ---

@@ -169,18 +169,27 @@ pub const Parser = struct {
         // Detect blocks
         if (self.check(&.{.op_left_brace})) return self.block();
 
-        const stmt = try self.allocator.create(types.Stmt);
-        var stmt_type: ?types.TokenType = null;
+        // Detect if and loop statements
+        if (self.matches(&.{ .cf_if, .cf_loop })) return self.conditional();
+
+        // Detect jumps
+        if (self.matches(&.{
+            .cf_return,
+            .cf_break,
+            .cf_continue,
+        })) return self.jump();
 
         // Detect builtin statements
+        var builtin_type: ?types.TokenType = null;
         if (self.matches(&.{
             .builtin_drop,
             .builtin_print,
-        })) stmt_type = self.previous().token_type;
+        })) builtin_type = self.previous().token_type;
 
-        // Grab the expression and check for assignments
+        // Parse everything else then check for assignments
+        const stmt = try self.allocator.create(types.Stmt);
         const expr = try self.expression();
-        if (stmt_type == null and self.matches(&assign_ops)) {
+        if (builtin_type == null and self.matches(&assign_ops)) {
             const operator = self.previous();
 
             // Validate target of assignment
@@ -210,7 +219,7 @@ pub const Parser = struct {
 
         // Fallthrough: not an assignment statement
         _ = try self.consume(.op_semicolon, "Expected ';' after expression");
-        stmt.* = switch (stmt_type orelse .eof) {
+        stmt.* = switch (builtin_type orelse .eof) {
             .builtin_drop => .{ .builtin_drop = expr },
             .builtin_print => .{ .builtin_print = expr },
             else => .{ .expression = expr },
@@ -221,7 +230,7 @@ pub const Parser = struct {
 
     /// The block rule; satisfied by `"{" ( DECLARATIONS... ) "}"
     fn block(self: *Parser) anyerror!*types.Stmt {
-        _ = try self.consume(.op_left_brace, "Expected '{' to open block");
+        _ = try self.consume(.op_left_brace, "Expected '{' to open block body");
         self.depth += 1;
 
         // Collect inner statements, parses up because each block is a fresh scope that can contain declarations
@@ -237,6 +246,53 @@ pub const Parser = struct {
             .statements = try statements.toOwnedSlice(self.allocator),
         } };
 
+        return stmt;
+    }
+
+    /// The conditional rule; satisfied by `if | loop | iter "(" EXPRESSION ")" BLOCK ( else ( CONDITIONAL | BLOCK ) )`
+    fn conditional(self: *Parser) anyerror!*types.Stmt {
+        const keyword = self.previous();
+        _ = try self.consume(.op_left_paren, "Expected '(' before condition");
+        const condition = try self.expression();
+        _ = try self.consume(.op_right_paren, "Expected ')' after condition");
+
+        // Parse the branch bodies
+        const then_branch = try self.block();
+        var else_branch: ?*types.Stmt = null;
+        if (self.matches(&.{.cf_else})) {
+            else_branch = if (self.matches(&.{
+                .cf_if,
+                .cf_loop,
+            }))
+                try self.conditional()
+            else
+                try self.block();
+        }
+
+        const stmt = try self.allocator.create(types.Stmt);
+        stmt.* = .{ .conditional = .{
+            .keyword = keyword,
+            .condition = condition,
+            .then_branch = then_branch,
+            .else_branch = else_branch,
+        } };
+
+        return stmt;
+    }
+
+    /// The jump rule; satisfied by `return ( EXPRESSION ) | break | continue`
+    fn jump(self: *Parser) anyerror!*types.Stmt {
+        const keyword = self.previous();
+        var value: ?*types.Expr = null;
+        if (keyword.token_type == .cf_return and !self.check(&.{.op_semicolon}))
+            value = try self.expression();
+
+        _ = try self.consume(.op_semicolon, "Expected ';' after jump");
+        const stmt = try self.allocator.create(types.Stmt);
+        stmt.* = .{ .jump = .{
+            .keyword = keyword,
+            .value = value,
+        } };
         return stmt;
     }
 
@@ -697,13 +753,11 @@ pub const Parser = struct {
             switch (self.peek().token_type) {
                 .decl_struct,
                 .decl_static,
-                .decl_dyn,
-                .decl_mtd,
+                .decl_const,
                 .decl_var,
                 .cf_loop,
                 .cf_if,
                 .cf_else,
-                .cf_eval,
                 .cf_continue,
                 .cf_break,
                 .cf_return,

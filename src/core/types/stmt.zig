@@ -10,6 +10,8 @@ pub const Stmt = union(enum) {
 
     assignment: Assignment,
     block: Block,
+    conditional: Conditional,
+    jump: Jump,
     package: Package,
     variable: Variable,
 
@@ -49,6 +51,50 @@ pub const Stmt = union(enum) {
             return std.fmt.allocPrint(allocator, "[block: {{\n{s}\n}}]", .{
                 statements,
             }) catch "[block]";
+        }
+    };
+
+    const Conditional = struct {
+        keyword: token.Token,
+        condition: *expr.Expr,
+        then_branch: *Stmt,
+        else_branch: ?*Stmt,
+
+        /// Return a string representation of the conditional statement
+        fn string(self: Conditional, allocator: std.mem.Allocator) []const u8 {
+            const otherwise = if (self.else_branch) |branch|
+                std.fmt.allocPrint(allocator, " else {s}", .{
+                    branch.string(allocator),
+                }) catch " [else]"
+            else
+                "";
+
+            return std.fmt.allocPrint(allocator, "{s} ({s}) {s}{s}", .{
+                self.keyword.value,
+                self.condition.string(allocator),
+                self.then_branch.string(allocator),
+                otherwise,
+            }) catch "[conditional]";
+        }
+    };
+
+    const Jump = struct {
+        keyword: token.Token,
+        value: ?*expr.Expr,
+
+        /// Return a string representation of the jump statement
+        fn string(self: Jump, allocator: std.mem.Allocator) []const u8 {
+            const value = if (self.value) |value|
+                std.fmt.allocPrint(allocator, " ({s})", .{
+                    value.string(allocator),
+                }) catch "[value]"
+            else
+                "";
+
+            return std.fmt.allocPrint(allocator, "{s}{s}", .{
+                self.keyword.value,
+                value,
+            }) catch "[jump]";
         }
     };
 

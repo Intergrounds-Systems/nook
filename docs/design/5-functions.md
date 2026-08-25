@@ -6,98 +6,44 @@ Function types, signatures, and calling
 
 ## Signatures
 
-* Signatures are in the form `(args...) -> T`
+* Signatures are in the form `(arg, arg, [args...]) -> T`
 * Functions take 0 or more arguments
 * Functions return 0 or 1 value
-* Functions that never return a value do not have a `-> T` annotation
-* The final argument to a function can be variadic
-* Return types can be one of three variants (more info below):
-  * **Scalar**: return value only
-  * **Optional**: return value or nothing
-  * **Errorable**: return value or an error
+* Functions that never return a value return `void`
+* The final argument to a function can be variadic; a literal `...` suffix marks an argument as variadic
 
----
+Examples:
 
-## Static Functions
 
-* Scope: **global**
-* Binding: **early**
-* Dispatch: **static**
-* Rebind: **no**
-* Declaration: `static name(args...) -> T {}`
-
----
-
-## Dynamic Functions
-
-* Scope: **global, local and instance**
-* Binding: **late**
-* Dispatch: **dynamic**
-* Rebind: **yes**
-* Declaration: `dyn name(args...) -> T {}`
-
----
-
-## Methods
-
-* Scope: **struct instance**
-* Binding: **early**
-* Dispatch: **static**
-* Rebind: **no**
-* Declaration: `mtd name(args...) -> T {}`
-
----
-
-## Lambdas
-
-* Scope: **local**
-* Binding: **early**
-* Dispatch: **static**
-* Rebind: **no**
-* Declaration: `lambda name(args...) -> T {}`
-
----
-
-## Return Variants
-
-**Scalar**
-
-* Return annotation: `-> T`
-* Return syntax: `return V;`
-* Caller handling: **none**
-
-**Optional**
-
-* Return annotation: `-> T?`
-* Return syntax: `return V;` (value), `return;` (nothing)
-* Caller handling:
 ```
-// resolved
-eval res = foo() {
-	// handle value returned
-} else {
-	// handle nothing returned
+struct Person {
+	var name: str;
+	var age: u8;
+
+	// A static function, doesn't rebind, known at compile time, can access member fields
+	const greet: func(other: ref<Person>) -> void {
+		print "Hello, " + other.name + ", my name is " + .name;
+	}
+
+	// A dynamic function, can rebind, known at runtime, can't access member fields
+	var doThing: func() -> u8 {
+		return 9;
+	}
+
+	// Note: undefined dynamic functions are not supported at this time
 }
 
-// raised when calling function has same return type
-var res = foo()?;
-```
+var alice = new Person {
+	name: "Alice",
+	age: 39,
+};
 
-**Errorable**
+var dave = new Person {
+	name: "Dave",
+	age: 47,
+};
 
-* Return annotation: `-> T!`
-* Return syntax: `return V;` (value), `return error(message);` (error)
-* Caller handling:
-```
-// resolved
-eval res = foo() {
-	// handle value returned
-} else {
-	// handle error returned
-}
-
-// raised when calling function has same return type
-var res = foo()!;
+dave.greet(#alice);
 ```
 
 ---

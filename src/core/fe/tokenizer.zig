@@ -339,7 +339,6 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ "?", .op_question },
     .{ "_", .op_underscore },
     .{ ";", .op_semicolon },
-    .{ ".", .op_dot },
 
     // Single and double-char
     .{ "~=", .op_tilde_equals },
@@ -369,6 +368,9 @@ const operator_token_types = std.StaticStringMap(types.TokenType).initComptime(.
     .{ "^=", .op_caret_equals },
     .{ "^^", .op_caret_caret },
     .{ "^", .op_caret },
+    .{ "...", .op_dot_dot_dot },
+    .{ "..", .op_dot_dot },
+    .{ ".", .op_dot },
 
     // Single, double and triple-char
     .{ "<<=", .op_left_shift_equals },
@@ -407,11 +409,12 @@ const keyword_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
     .{ "char", .dt_char },
     .{ "str", .dt_str },
     .{ "bool", .dt_bool },
+    .{ "func", .dt_func },
+    .{ "void", .dt_void },
 
     // Control flow
     .{ "if", .cf_if },
     .{ "else", .cf_else },
-    .{ "eval", .cf_eval },
     .{ "loop", .cf_loop },
     .{ "return", .cf_return },
     .{ "continue", .cf_continue },
@@ -423,8 +426,6 @@ const keyword_token_types = std.StaticStringMap(types.TokenType).initComptime(.{
     .{ "var", .decl_var },
     .{ "const", .decl_const },
     .{ "static", .decl_static },
-    .{ "dyn", .decl_dyn },
-    .{ "mtd", .decl_mtd },
     .{ "own", .ptr_own },
     .{ "ref", .ptr_ref },
 

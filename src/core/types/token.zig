@@ -43,7 +43,6 @@ pub const TokenType = enum {
     op_question, // ?
     op_underscore, // _
     op_semicolon, // ;
-    op_dot, // .
 
     // Single or double-char operators by initial char
     op_bang, // !
@@ -87,6 +86,9 @@ pub const TokenType = enum {
     op_star_equals, // *=
     op_star_star, // **
     op_star_star_equals, // **=
+    op_dot, // .
+    op_dot_dot, // ..
+    op_dot_dot_dot, // ...
 
     // Literals
     identifier, // begins with a-zA-Z
@@ -113,6 +115,8 @@ pub const TokenType = enum {
     dt_f32,
     dt_f64,
     dt_bool,
+    dt_func,
+    dt_void,
 
     // Pointer types
     ptr_own,
@@ -121,7 +125,6 @@ pub const TokenType = enum {
     // Control flow
     cf_if,
     cf_else,
-    cf_eval,
     cf_loop,
     cf_return,
     cf_continue,
@@ -133,8 +136,6 @@ pub const TokenType = enum {
     decl_var,
     decl_const,
     decl_static,
-    decl_dyn,
-    decl_mtd,
 
     // Builtins
     builtin_new,
