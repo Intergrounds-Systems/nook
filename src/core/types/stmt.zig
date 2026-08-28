@@ -13,7 +13,7 @@ pub const Stmt = union(enum) {
     conditional: Conditional,
     jump: Jump,
     package: Package,
-    variable: Variable,
+    symbol: Symbol,
 
     const Assignment = struct {
         target: *expr.Expr,
@@ -107,13 +107,14 @@ pub const Stmt = union(enum) {
         }
     };
 
-    const Variable = struct {
+    const Symbol = struct {
+        kind: token.Token,
         identifier: token.Token,
-        type_annotation: ?TypeAnnotation,
+        type_annotation: ?*TypeAnnotation,
         initializer: ?*expr.Expr,
 
-        /// Return a string representation of the variable statement
-        fn string(self: Variable, allocator: std.mem.Allocator) []const u8 {
+        /// Return a string representation of the symbol statement
+        fn string(self: Symbol, allocator: std.mem.Allocator) []const u8 {
             const annotation = if (self.type_annotation) |ta|
                 std.fmt.allocPrint(allocator, "{s}", .{ta.string(allocator)}) catch ": ?"
             else
@@ -124,11 +125,12 @@ pub const Stmt = union(enum) {
             else
                 "";
 
-            return std.fmt.allocPrint(allocator, "{s}: {s}{s}", .{
+            return std.fmt.allocPrint(allocator, "{s} {s}: {s}{s}", .{
+                self.kind.value,
                 self.identifier.value,
                 annotation,
                 suffix,
-            }) catch "[variable]";
+            }) catch "[symbol]";
         }
     };
 
@@ -148,26 +150,55 @@ pub const Stmt = union(enum) {
 };
 
 /// Represents a type annotation
-pub const TypeAnnotation = struct {
-    type_id: token.Token,
-    ptr_type: ?token.Token,
+pub const TypeAnnotation = union(enum) {
+    function: Function,
+    named: Named,
+    pointer: Pointer,
 
-    fn string(self: TypeAnnotation, allocator: std.mem.Allocator) []const u8 {
-        var prefix: []const u8 = "";
-        var left_angle: []const u8 = "";
-        var right_angle: []const u8 = "";
+    const Function = struct {
+        params: []*TypeAnnotation,
+        returns: *TypeAnnotation,
 
-        if (self.ptr_type) |pt| {
-            prefix = pt.value;
-            left_angle = "<";
-            right_angle = ">";
+        fn string(self: Function, allocator: std.mem.Allocator) []const u8 {
+            var params: []const u8 = "";
+            for (self.params, 0..) |param, i| {
+                params = std.fmt.allocPrint(allocator, "{s}{s}{s}", .{
+                    params,
+                    param.string(allocator),
+                    if (i < self.params.len - 1) ", " else "",
+                }) catch params;
+            }
+
+            return std.fmt.allocPrint(allocator, "func<({s}) -> {s}>", .{
+                params,
+                self.returns.string(allocator),
+            }) catch "func";
         }
+    };
 
-        return std.fmt.allocPrint(allocator, "{s}{s}{s}{s}", .{
-            prefix,
-            left_angle,
-            self.type_id.value,
-            right_angle,
-        }) catch "T";
+    const Named = struct {
+        type_id: token.Token,
+
+        fn string(self: Named, _: std.mem.Allocator) []const u8 {
+            return self.type_id.value;
+        }
+    };
+
+    const Pointer = struct {
+        kind: token.Token,
+        inner: *TypeAnnotation,
+
+        fn string(self: Pointer, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "{s}<{s}>", .{
+                self.kind.value,
+                self.inner.string(allocator),
+            }) catch "T";
+        }
+    };
+
+    pub fn string(self: TypeAnnotation, allocator: std.mem.Allocator) []const u8 {
+        return switch (self) {
+            inline else => |inner| inner.string(allocator),
+        };
     }
 };

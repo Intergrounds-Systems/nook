@@ -28,6 +28,7 @@ const data_types = [_]types.TokenType{
     .dt_f32,
     .dt_f64,
     .dt_bool,
+    .dt_void,
     .identifier,
 };
 
@@ -81,17 +82,26 @@ pub const Parser = struct {
     fn declaration(self: *Parser) ?*types.Stmt {
         if (self.matches(&.{.comment})) return null;
 
-        const stmt = if (self.matches(&.{.decl_var}))
-            self.varDeclaration()
+        const stmt = if (self.matches(&.{
+            .decl_var,
+            .decl_const,
+            .decl_static,
+        }))
+            self.symbol()
         else if (self.matches(&.{.decl_pkg}))
-            self.pkgDeclaration()
+            self.package()
         else
             self.statement();
 
         return stmt catch |err| {
             // If this is a ParserError, we already logged it
             switch (err) {
-                ParserError.UnexpectedToken, ParserError.ExpectedExpression, ParserError.ParseFailed => {},
+                ParserError.UnexpectedToken,
+                ParserError.ExpectedExpression,
+                ParserError.ParseFailed,
+                ParserError.InvalidDataType,
+                ParserError.InvalidAssignmentTarget,
+                => {},
                 else => log.err("{any}", .{err}),
             }
 
@@ -101,8 +111,8 @@ pub const Parser = struct {
         };
     }
 
-    /// The package declaration rule; satisfied by `IDENTIFIER ;`
-    fn pkgDeclaration(self: *Parser) anyerror!*types.Stmt {
+    /// The package rule; satisfied by `IDENTIFIER ;`
+    fn package(self: *Parser) anyerror!*types.Stmt {
         const identifier = try self.consume(.identifier, "Expected package identifier");
         _ = try self.consume(.op_semicolon, "Expected ';' after package declaration");
 
@@ -114,35 +124,14 @@ pub const Parser = struct {
         return stmt;
     }
 
-    /// The variable declaration rule; satisfied by `IDENTIFIER ( : ( T | own<T> | ref<T> ) ) ( = EXPRESSION ) ;`
-    fn varDeclaration(self: *Parser) anyerror!*types.Stmt {
-        const identifier = try self.consume(.identifier, "Expected variable identifier");
+    /// The symbol rule; satisfied by `IDENTIFIER ( : ( T | own<T> | ref<T> | func<(T, T, T...) -> T> ) ) ( = EXPRESSION ) ;`
+    fn symbol(self: *Parser) anyerror!*types.Stmt {
+        const kind = self.previous();
+        const identifier = try self.consume(.identifier, "Expected symbol identifier");
 
         // Detect type annotation
-        var type_annotation: ?types.TypeAnnotation = null;
-        if (self.matches(&.{.op_colon})) {
-            // Determine pointer type if present
-            var ptr_type: ?types.Token = null;
-            if (self.matches(&.{ .ptr_own, .ptr_ref })) {
-                ptr_type = self.previous();
-                _ = try self.consume(.op_left_angle, "Expected '<T>' after 'own' or 'ref'");
-            }
-
-            // Determine data type
-            if (!self.matches(&data_types)) {
-                log.err("Invalid data type '{s}'", .{self.peek().value});
-                return ParserError.InvalidDataType;
-            }
-
-            // Commit data type and close pointer annotation
-            const type_id = self.previous();
-            if (ptr_type) |_| _ = try self.consume(.op_right_angle, "Missing '>' after type annotation");
-
-            type_annotation = .{
-                .type_id = type_id,
-                .ptr_type = ptr_type,
-            };
-        }
+        var type_annotation: ?*types.TypeAnnotation = null;
+        if (self.matches(&.{.op_colon})) type_annotation = try self.typeAnnotation();
 
         // Detect initializer
         var initializer: ?*types.Expr = null;
@@ -150,15 +139,69 @@ pub const Parser = struct {
             initializer = try self.expression();
         }
 
-        _ = try self.consume(.op_semicolon, "Expected ';' after variable declaration");
+        _ = try self.consume(.op_semicolon, "Expected ';' after symbol declaration");
         const stmt = try self.allocator.create(types.Stmt);
-        stmt.* = .{ .variable = .{
+        stmt.* = .{ .symbol = .{
+            .kind = kind,
             .identifier = identifier,
             .type_annotation = type_annotation,
             .initializer = initializer,
         } };
 
         return stmt;
+    }
+
+    /// The type annotation rule; satisfied by `own<T> | ref<T> | func<(T, T, T...) -> T> | T`
+    fn typeAnnotation(self: *Parser) anyerror!*types.TypeAnnotation {
+        const node = try self.allocator.create(types.TypeAnnotation);
+
+        // Match the pointer shape
+        if (self.matches(&.{ .ptr_own, .ptr_ref })) {
+            const kind = self.previous();
+            _ = try self.consume(.op_left_angle, "Expected '<' after 'own' or 'ref'");
+            const inner = try self.typeAnnotation();
+            _ = try self.consumeRightAngle("Expected '>' after pointer type");
+
+            node.* = .{ .pointer = .{
+                .kind = kind,
+                .inner = inner,
+            } };
+            return node;
+        }
+
+        // Match the function shape
+        if (self.matches(&.{.dt_func})) {
+            _ = try self.consume(.op_left_angle, "Expected '<' after 'func'");
+            _ = try self.consume(.op_left_paren, "Expected '(' after 'func<'");
+
+            // Collect params
+            var params: std.ArrayList(*types.TypeAnnotation) = .empty;
+            while (!self.done() and !self.check(&.{.op_right_paren})) {
+                try params.append(self.allocator, try self.typeAnnotation());
+                if (!self.matches(&.{.op_comma})) break;
+            }
+
+            // Close params list and get return type
+            _ = try self.consume(.op_right_paren, "Expected ')' after parameters list");
+            _ = try self.consume(.op_right_arrow, "Expected '->' after parameters list");
+            const returns = try self.typeAnnotation();
+            _ = try self.consumeRightAngle("Expected '>' after function signature");
+
+            node.* = .{ .function = .{
+                .params = try params.toOwnedSlice(self.allocator),
+                .returns = returns,
+            } };
+            return node;
+        }
+
+        // Match the data type shape
+        if (!self.matches(&data_types)) {
+            log.err("Invalid data type '{s}'", .{self.peek().value});
+            return ParserError.InvalidDataType;
+        }
+
+        node.* = .{ .named = .{ .type_id = self.previous() } };
+        return node;
     }
 
     // Statement parsing rules
@@ -679,7 +722,7 @@ pub const Parser = struct {
         }
 
         // Construct
-        if (self.checkNext(&.{.op_left_brace}) and self.matches(&data_types)) return self.construct();
+        if (self.checkAt(1, &.{.op_left_brace}) and self.matches(&data_types)) return self.construct();
 
         // Identifier
         if (self.matches(&.{.identifier})) {
@@ -688,6 +731,12 @@ pub const Parser = struct {
 
             return expr;
         }
+
+        // Function definition
+        const left_paren = self.check(&.{.op_left_paren});
+        const empty_signature = self.checkAt(1, &.{.op_right_paren});
+        const args_signature = self.checkAt(1, &.{.identifier}) and self.checkAt(2, &.{.op_colon});
+        if (left_paren and (empty_signature or args_signature)) return self.function();
 
         // Expression grouping
         if (self.matches(&.{.op_left_paren})) {
@@ -719,7 +768,7 @@ pub const Parser = struct {
             var name: ?types.Token = null;
 
             // Look for field names in the format of <name>:
-            if (self.check(&.{.identifier}) and self.checkNext(&.{.op_colon})) {
+            if (self.check(&.{.identifier}) and self.checkAt(1, &.{.op_colon})) {
                 name = self.advance();
                 _ = self.advance(); // consume the colon
             }
@@ -734,6 +783,40 @@ pub const Parser = struct {
         expr.* = .{ .construct = .{
             .type_id = type_id,
             .fields = try fields.toOwnedSlice(self.allocator),
+        } };
+
+        return expr;
+    }
+
+    /// The function rule; satisfied by `"(" ( IDENTIFIER : T, ... ) ")" -> T BLOCK`
+    fn function(self: *Parser) anyerror!*types.Expr {
+        _ = try self.consume(.op_left_paren, "Expected '(' to open parameter list");
+
+        // Collect params
+        var params: std.ArrayList(types.Expr.Function.Param) = .empty;
+        while (!self.done() and !self.check(&.{.op_right_paren})) {
+            const name = try self.consume(.identifier, "Expected parameter name");
+            _ = try self.consume(.op_colon, "Expected ':' after parameter name");
+
+            try params.append(self.allocator, .{
+                .name = name,
+                .type_annotation = try self.typeAnnotation(),
+            });
+
+            if (!self.matches(&.{.op_comma})) break;
+        }
+
+        // Close the param list and get the return type
+        _ = try self.consume(.op_right_paren, "Expected ')' after parameter list");
+        _ = try self.consume(.op_right_arrow, "Expected '->' after parameter list");
+        const returns = try self.typeAnnotation();
+        const body = try self.block();
+
+        const expr = try self.allocator.create(types.Expr);
+        expr.* = .{ .function = .{
+            .params = try params.toOwnedSlice(self.allocator),
+            .returns = returns,
+            .body = body,
         } };
 
         return expr;
@@ -781,6 +864,29 @@ pub const Parser = struct {
         return ParserError.UnexpectedToken;
     }
 
+    /// Consume a '>' that might be the first char in a '>>' token. If it is, it overwrites
+    /// the '>>' in-stream with a single '>', consuming the first '>'
+    fn consumeRightAngle(self: *Parser, err_msg: []const u8) ParserError!types.Token {
+        if (self.check(&.{.op_right_shift})) {
+            const shift_token = self.peek();
+            self.tokens[self.pos] = .{
+                .value = ">",
+                .token_type = .op_right_angle,
+                .line = shift_token.line,
+                .col = shift_token.col + 1,
+            };
+
+            return .{
+                .value = ">",
+                .token_type = .op_right_angle,
+                .line = shift_token.line,
+                .col = shift_token.col,
+            };
+        }
+
+        return self.consume(.op_right_angle, err_msg);
+    }
+
     /// Check if the current token is of any of the given types
     fn check(self: *Parser, token_types: []const types.TokenType) bool {
         if (self.done()) return false;
@@ -788,10 +894,10 @@ pub const Parser = struct {
         return false;
     }
 
-    /// Check if the token after the current one is of any of the given types
-    fn checkNext(self: *Parser, token_types: []const types.TokenType) bool {
-        if (self.done()) return false;
-        for (token_types) |token_type| if (self.tokens[self.pos + 1].token_type == token_type) return true;
+    /// Check if the token at a specific offset ahead of the current token matches the list
+    fn checkAt(self: *Parser, offset: usize, token_types: []const types.TokenType) bool {
+        if (self.pos + offset >= self.tokens.len) return false;
+        for (token_types) |token_type| if (self.tokens[self.pos + offset].token_type == token_type) return true;
         return false;
     }
 

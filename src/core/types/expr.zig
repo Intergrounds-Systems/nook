@@ -1,4 +1,5 @@
 const std = @import("std");
+const stmt = @import("stmt.zig");
 const token = @import("token.zig");
 const value = @import("value.zig");
 
@@ -7,6 +8,7 @@ pub const Expr = union(enum) {
     binary: Binary,
     call: Call,
     construct: Construct,
+    function: Function,
     get: Get,
     grouping: Grouping,
     literal: Literal,
@@ -112,6 +114,43 @@ pub const Expr = union(enum) {
                 self.type_id.value,
                 fields,
             }) catch "[construct]";
+        }
+    };
+
+    pub const Function = struct {
+        params: []Param,
+        returns: *stmt.TypeAnnotation,
+        body: *stmt.Stmt,
+
+        pub const Param = struct {
+            name: token.Token,
+            type_annotation: *stmt.TypeAnnotation,
+
+            /// Return a string representation of the function parameter
+            fn string(self: Param, allocator: std.mem.Allocator) []const u8 {
+                return std.fmt.allocPrint(allocator, "{s}: {s}", .{
+                    self.name.value,
+                    self.type_annotation.string(allocator),
+                }) catch "[param]";
+            }
+        };
+
+        /// Return a string representation of the function expression
+        fn string(self: Function, allocator: std.mem.Allocator) []const u8 {
+            var params: []const u8 = "";
+            for (self.params, 0..) |param, i| {
+                params = std.fmt.allocPrint(allocator, "{s}{s}{s}", .{
+                    params,
+                    param.string(allocator),
+                    if (i < self.params.len - 1) ", " else "",
+                }) catch params;
+            }
+
+            return std.fmt.allocPrint(allocator, "[func: ({s}) -> {s}: {s}]", .{
+                params,
+                self.returns.string(allocator),
+                self.body.string(allocator),
+            }) catch "[func]";
         }
     };
 
