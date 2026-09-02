@@ -1,0 +1,57 @@
+name: CI
+
+on: push
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Check formatting
+        run: zig fmt --check src build.zig
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Run unit tests
+        run: zig build test --summary all
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Build
+        if: github.ref != 'refs/heads/main'
+        run: zig build
+
+      - name: Build (release)
+        if: github.ref == 'refs/heads/main'
+        run: zig build --release=safe

@@ -63,6 +63,35 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("cli", cli_mod);
     b.installArtifact(exe);
+
+    // Define the test suite
+    const test_filter = b.option([]const u8, "test-filter", "Only run tests whose name contains this string");
+    const test_filters: []const []const u8 = if (test_filter) |filter|
+        b.allocator.dupe([]const u8, &.{filter}) catch @panic("OOM")
+    else
+        &.{};
+
+    const test_step = b.step("test", "Run unit tests");
+    for ([_][]const u8{
+        "src/core/fe/tokenizer_test.zig",
+        "src/core/fe/parser_test.zig",
+    }) |path| {
+        const unit_tests = b.addTest(.{
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(path),
+                .target = target,
+                .optimize = optimize,
+            }),
+            .filters = test_filters,
+        });
+
+        unit_tests.root_module.addImport("log", log_mod);
+        unit_tests.root_module.addImport("types", types_mod);
+
+        const run_tests = b.addRunArtifact(unit_tests);
+        run_tests.has_side_effects = true;
+        test_step.dependOn(&run_tests.step);
+    }
 }
 
 /// Parses build.zig.zon into package metadata

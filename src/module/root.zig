@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const MODULE_FILE = "nook.mod";
+const MODULE_FILE = "nookbook";
 
 /// Module tooling errors
 pub const ModuleError = error{

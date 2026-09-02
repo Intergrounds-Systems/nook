@@ -73,7 +73,8 @@ Requires Zig `0.15.2` or newer.
 
 ```sh
 zig build              # builds zig-out/bin/nook
-zig build --release    # optimized
+zig build --release=safe  # optimized, safety checks retained
+zig build test         # run the unit tests
 ```
 
 ## Usage
