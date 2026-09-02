@@ -13,6 +13,7 @@ pub const Stmt = union(enum) {
     conditional: Conditional,
     jump: Jump,
     package: Package,
+    structure: Structure,
     symbol: Symbol,
 
     const Assignment = struct {
@@ -48,7 +49,7 @@ pub const Stmt = union(enum) {
                 }) catch statements;
             }
 
-            return std.fmt.allocPrint(allocator, "[block: {{\n{s}\n}}]", .{
+            return std.fmt.allocPrint(allocator, "{{\n{s}\n}}", .{
                 statements,
             }) catch "[block]";
         }
@@ -104,6 +105,19 @@ pub const Stmt = union(enum) {
         /// Return a string representation of the package statement
         fn string(self: Package, _: std.mem.Allocator) []const u8 {
             return self.identifier.value;
+        }
+    };
+
+    const Structure = struct {
+        identifier: token.Token,
+        body: *Stmt, // block
+
+        /// Return a string representation of the structure statement
+        fn string(self: Structure, allocator: std.mem.Allocator) []const u8 {
+            return std.fmt.allocPrint(allocator, "{s}: {s}", .{
+                self.identifier.value,
+                self.body.string(allocator),
+            }) catch "[structure]";
         }
     };
 

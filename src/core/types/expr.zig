@@ -155,13 +155,18 @@ pub const Expr = union(enum) {
     };
 
     const Get = struct {
-        instance: *Expr,
+        instance: ?*Expr,
         field: token.Token,
 
         /// Return a string representation of the get expression
         fn string(self: Get, allocator: std.mem.Allocator) []const u8 {
+            const instance = if (self.instance) |inst|
+                inst.string(allocator)
+            else
+                "";
+
             return std.fmt.allocPrint(allocator, "[get: {s}.{s}]", .{
-                self.instance.string(allocator),
+                instance,
                 self.field.value,
             }) catch "[get]";
         }

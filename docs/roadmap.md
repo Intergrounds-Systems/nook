@@ -63,8 +63,8 @@
 **Errors**
 - Panic with `panic()`
 - Result types
-  - Optional returns with `?`
-  - Error returns with `!`
+  - Deferred — optional (`?`) and errorable (`!`) return variants were removed
+    from the function design; revisit as a general optional-types system
 
 **Globals**
 - Static variables with `static`
@@ -72,7 +72,7 @@
 - Constants with `const`
   - Literals and pointers that fit in CPU register are inlined
   - Everything else goes in static storage (read-only)
-- Function pointers allowed with `dyn`
+- Function pointers are ordinary values; `var` gives dynamic dispatch, `const` static
 
 **Backend**
 - C as portable assembly
@@ -82,21 +82,33 @@
 
 ## Implementation Order
 
+**Where things stand:** the language is designed through structs, and the front end
+tokenizes and parses all of it to an AST. Nothing is checked or generated yet — the next
+phase is section 2.
+
 ### 0. Base Syntax and Design
-- [ ] Comments, casing and whitespace conventions
-- [ ] Primitive data types
-- [ ] Arithmetic, bitwise, comparison, and logical expressions
-- [ ] Variable declaration and definition
-- [ ] Function definition and calling
-- [ ] Control flow
-- [ ] Heap allocation
-- [ ] Structs
+- [x] Comments, casing and whitespace conventions
+- [x] Primitive data types
+- [x] Statements, assignment, and terminators
+- [x] Arithmetic, bitwise, comparison, and logical expressions
+- [x] Variable, constant, and static declaration
+- [x] Function definition and calling
+- [x] Control flow
+- [x] Heap allocation
+- [x] Structs
+
+Deferred, both blocked on section 9:
+- `iter` loops over collections
+- Variadic arguments
+
+Dropped pending sum types: `switch` / `case`. A match construct earns its keep through
+exhaustiveness checking, which needs a closed set of values to check against.
 
 ### 1. Core Execution
-- [ ] Lexer
-- [ ] Parser → AST
+- [x] Lexer
+- [x] Parser → AST
 - [ ] Basic C generation
-- [ ] Functions, variables, expressions
+- [ ] Functions, variables, expressions end to end
 
 ---
 
@@ -157,6 +169,9 @@
 - [ ] Type notation
 - [ ] Typed collections
 - [ ] Generic functions
+
+Unblocks the deferred syntax from section 0 — `iter` needs something to iterate over, and
+variadics need somewhere to put the extra arguments.
 
 ---
 

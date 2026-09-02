@@ -16,12 +16,12 @@ Functions inside structs can be `static` so that only one copy is dispatched; it
 // This is a function that takes two numbers and returns their product
 const product = (a: f64, b: f64) -> f64 {
 	return a * b;
-};
+}
 
 // This function takes nothing and returns no value, but can be reseated at runtime
 var doThing = () -> void {
 	
-};
+}
 
 // This function composes two functions into one
 const compose = (f1: func<(f64, f64) -> f64>, f2: func<(f64, f64) -> f64>) -> func<(f64, f64) -> f64> {
@@ -35,7 +35,7 @@ const compose = (f1: func<(f64, f64) -> f64>, f2: func<(f64, f64) -> f64>) -> fu
 		// Calling functions and using their returns inline
 		return f1(a, b) ** f2(a, b);
 	};
-};
+}
 ```
 
 * Functions take 0 or more arguments

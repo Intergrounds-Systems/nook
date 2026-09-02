@@ -90,6 +90,8 @@ pub const Parser = struct {
             self.symbol()
         else if (self.matches(&.{.decl_pkg}))
             self.package()
+        else if (self.matches(&.{.decl_struct}))
+            self.structure()
         else
             self.statement();
 
@@ -139,7 +141,10 @@ pub const Parser = struct {
             initializer = try self.expression();
         }
 
-        _ = try self.consume(.op_semicolon, "Expected ';' after symbol declaration");
+        // Check whether we're defining a struct
+        const is_struct = if (initializer) |in| in.* == .function else false;
+        if (!is_struct) _ = try self.consume(.op_semicolon, "Expected ';' after symbol declaration");
+
         const stmt = try self.allocator.create(types.Stmt);
         stmt.* = .{ .symbol = .{
             .kind = kind,
@@ -267,6 +272,20 @@ pub const Parser = struct {
             .builtin_print => .{ .builtin_print = expr },
             else => .{ .expression = expr },
         };
+
+        return stmt;
+    }
+
+    /// The structure rule; satisfied by `struct IDENTIFER BLOCK`
+    fn structure(self: *Parser) anyerror!*types.Stmt {
+        const identifier = try self.consume(.identifier, "Expected struct name");
+        const body = try self.block();
+
+        const stmt = try self.allocator.create(types.Stmt);
+        stmt.* = .{ .structure = .{
+            .identifier = identifier,
+            .body = body,
+        } };
 
         return stmt;
     }
@@ -723,6 +742,18 @@ pub const Parser = struct {
 
         // Construct
         if (self.checkAt(1, &.{.op_left_brace}) and self.matches(&data_types)) return self.construct();
+
+        // Implicit self member access
+        if (self.matches(&.{.op_dot})) {
+            const field = try self.consume(.identifier, "Expected field name after '.'");
+            const expr = try self.allocator.create(types.Expr);
+            expr.* = .{ .get = .{
+                .instance = null,
+                .field = field,
+            } };
+
+            return expr;
+        }
 
         // Identifier
         if (self.matches(&.{.identifier})) {
