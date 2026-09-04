@@ -1,8 +1,8 @@
-struct Point {
-    var x: i64;
-    var y: i64;
+pkg main;
 
-    const string = () -> str {
-        return "test";
-    }
+// The main function
+const main = () -> void {
+    var i: i64 = 12;
+    var j = 3;
+    var k: f64;
 }

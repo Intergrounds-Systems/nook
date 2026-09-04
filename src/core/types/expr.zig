@@ -27,6 +27,11 @@ pub const Expr = union(enum) {
                 self.value.string(allocator),
             }) catch "[assign]";
         }
+
+        /// Generate C code from the assignment expression
+        pub fn generate(_: Assign, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: assignment expression\n";
+        }
     };
 
     const Binary = struct {
@@ -41,6 +46,11 @@ pub const Expr = union(enum) {
                 self.operator.value,
                 self.right.string(allocator),
             }) catch "[binary]";
+        }
+
+        /// Generate C code from the binary expression
+        pub fn generate(_: Binary, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: binary expression\n";
         }
     };
 
@@ -74,6 +84,11 @@ pub const Expr = union(enum) {
                 close,
             }) catch "[call]";
         }
+
+        /// Generate C code from the call expression
+        pub fn generate(_: Call, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: call expression\n";
+        }
     };
 
     pub const Construct = struct {
@@ -97,6 +112,11 @@ pub const Expr = union(enum) {
                     self.value.string(allocator),
                 }) catch "[field]";
             }
+
+            /// Generate C code from the field
+            pub fn generate(_: Field, _: std.mem.Allocator) []const u8 {
+                return "// unimplemented: field\n";
+            }
         };
 
         /// Return a string representation of the construct expression
@@ -115,6 +135,11 @@ pub const Expr = union(enum) {
                 fields,
             }) catch "[construct]";
         }
+
+        /// Generate C code from the construct expression
+        pub fn generate(_: Construct, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: construct expression\n";
+        }
     };
 
     pub const Function = struct {
@@ -132,6 +157,11 @@ pub const Expr = union(enum) {
                     self.name.value,
                     self.type_annotation.string(allocator),
                 }) catch "[param]";
+            }
+
+            /// Generate C code from the function parameter
+            pub fn generate(_: Param, _: std.mem.Allocator) []const u8 {
+                return "// unimplemented: function parameter\n";
             }
         };
 
@@ -152,6 +182,11 @@ pub const Expr = union(enum) {
                 self.body.string(allocator),
             }) catch "[func]";
         }
+
+        /// Generate C code from the function expression
+        pub fn generate(_: Function, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: function expression\n";
+        }
     };
 
     const Get = struct {
@@ -170,6 +205,11 @@ pub const Expr = union(enum) {
                 self.field.value,
             }) catch "[get]";
         }
+
+        /// Generate C code from the get expression
+        pub fn generate(_: Get, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: get expression\n";
+        }
     };
 
     const Grouping = struct {
@@ -181,6 +221,11 @@ pub const Expr = union(enum) {
                 self.expression.string(allocator),
             }) catch "[grouping]";
         }
+
+        /// Generate C code from the grouping expression
+        pub fn generate(_: Grouping, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: grouping expression\n";
+        }
     };
 
     const Literal = struct {
@@ -191,6 +236,11 @@ pub const Expr = union(enum) {
             return std.fmt.allocPrint(allocator, "[literal: {s}]", .{
                 self.value.string(allocator),
             }) catch "[literal]";
+        }
+
+        /// Generate C code from the literal expression
+        pub fn generate(_: Literal, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: literal expression\n";
         }
     };
 
@@ -207,6 +257,11 @@ pub const Expr = union(enum) {
                 self.right.string(allocator),
             }) catch "[logical]";
         }
+
+        /// Generate C code from the logical expression
+        pub fn generate(_: Logical, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: logical expression\n";
+        }
     };
 
     const Set = struct {
@@ -222,6 +277,11 @@ pub const Expr = union(enum) {
                 self.value.string(allocator),
             }) catch "[set]";
         }
+
+        /// Generate C code from the set expression
+        pub fn generate(_: Set, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: set expression\n";
+        }
     };
 
     const Unary = struct {
@@ -235,6 +295,11 @@ pub const Expr = union(enum) {
                 self.operand.string(allocator),
             }) catch "[unary]";
         }
+
+        /// Generate C code from the unary expression
+        pub fn generate(_: Unary, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: unary expression\n";
+        }
     };
 
     const Variable = struct {
@@ -246,12 +311,24 @@ pub const Expr = union(enum) {
                 self.name.value,
             }) catch "[variable]";
         }
+
+        /// Generate C code from the variable expression
+        pub fn generate(_: Variable, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: variable expression\n";
+        }
     };
 
     /// Return a string representation of the expression
     pub fn string(self: Expr, allocator: std.mem.Allocator) []const u8 {
         return switch (self) {
             inline else => |inner| inner.string(allocator),
+        };
+    }
+
+    /// Generate C code from the expression
+    pub fn generate(self: Expr, allocator: std.mem.Allocator) []const u8 {
+        return switch (self) {
+            inline else => |inner| inner.generate(allocator),
         };
     }
 };

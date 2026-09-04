@@ -22,12 +22,17 @@ pub const Stmt = union(enum) {
         value: *expr.Expr,
 
         /// Return a string representation of the assignment statement
-        fn string(self: Assignment, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Assignment, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "{s} {s} {s}", .{
                 self.target.string(allocator),
                 self.operator.value,
                 self.value.string(allocator),
             }) catch "[assignment]";
+        }
+
+        /// Generate C code from the assignment statement
+        pub fn generate(_: Assignment, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: assignment statement\n";
         }
     };
 
@@ -35,7 +40,7 @@ pub const Stmt = union(enum) {
         statements: []*Stmt,
 
         /// Return a string representation of the block statement
-        fn string(self: Block, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Block, allocator: std.mem.Allocator) []const u8 {
             var statements: []const u8 = "";
             for (self.statements, 0..) |statement, i| {
                 // Indent nested statements
@@ -53,6 +58,11 @@ pub const Stmt = union(enum) {
                 statements,
             }) catch "[block]";
         }
+
+        /// Generate C code from the block statement
+        pub fn generate(_: Block, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: block statement\n";
+        }
     };
 
     const Conditional = struct {
@@ -62,7 +72,7 @@ pub const Stmt = union(enum) {
         else_branch: ?*Stmt,
 
         /// Return a string representation of the conditional statement
-        fn string(self: Conditional, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Conditional, allocator: std.mem.Allocator) []const u8 {
             const otherwise = if (self.else_branch) |branch|
                 std.fmt.allocPrint(allocator, " else {s}", .{
                     branch.string(allocator),
@@ -77,6 +87,11 @@ pub const Stmt = union(enum) {
                 otherwise,
             }) catch "[conditional]";
         }
+
+        /// Generate C code from the conditional statement
+        pub fn generate(_: Conditional, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: conditional statement\n";
+        }
     };
 
     const Jump = struct {
@@ -84,7 +99,7 @@ pub const Stmt = union(enum) {
         value: ?*expr.Expr,
 
         /// Return a string representation of the jump statement
-        fn string(self: Jump, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Jump, allocator: std.mem.Allocator) []const u8 {
             const value = if (self.value) |value|
                 std.fmt.allocPrint(allocator, " ({s})", .{
                     value.string(allocator),
@@ -97,14 +112,24 @@ pub const Stmt = union(enum) {
                 value,
             }) catch "[jump]";
         }
+
+        /// Generate C code from the jump statement
+        pub fn generate(_: Jump, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: jump statement\n";
+        }
     };
 
     const Package = struct {
         identifier: token.Token,
 
         /// Return a string representation of the package statement
-        fn string(self: Package, _: std.mem.Allocator) []const u8 {
+        pub fn string(self: Package, _: std.mem.Allocator) []const u8 {
             return self.identifier.value;
+        }
+
+        /// Generate C code from the package statement
+        pub fn generate(_: Package, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: package statement\n";
         }
     };
 
@@ -113,11 +138,16 @@ pub const Stmt = union(enum) {
         body: *Stmt, // block
 
         /// Return a string representation of the structure statement
-        fn string(self: Structure, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Structure, allocator: std.mem.Allocator) []const u8 {
             return std.fmt.allocPrint(allocator, "{s}: {s}", .{
                 self.identifier.value,
                 self.body.string(allocator),
             }) catch "[structure]";
+        }
+
+        /// Generate C code from the structure statement
+        pub fn generate(_: Structure, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: structure statement\n";
         }
     };
 
@@ -128,7 +158,7 @@ pub const Stmt = union(enum) {
         initializer: ?*expr.Expr,
 
         /// Return a string representation of the symbol statement
-        fn string(self: Symbol, allocator: std.mem.Allocator) []const u8 {
+        pub fn string(self: Symbol, allocator: std.mem.Allocator) []const u8 {
             const annotation = if (self.type_annotation) |ta|
                 std.fmt.allocPrint(allocator, "{s}", .{ta.string(allocator)}) catch ": ?"
             else
@@ -146,9 +176,14 @@ pub const Stmt = union(enum) {
                 suffix,
             }) catch "[symbol]";
         }
+
+        /// Generate C code from the symbol statement
+        pub fn generate(_: Symbol, _: std.mem.Allocator) []const u8 {
+            return "// unimplemented: symbol statement\n";
+        }
     };
 
-    /// Return a string representation of the statement tree
+    /// Return a string representation of the statement
     pub fn string(self: Stmt, allocator: std.mem.Allocator) []const u8 {
         const tag = @tagName(self);
 
@@ -160,6 +195,13 @@ pub const Stmt = union(enum) {
             tag,
             node,
         }) catch tag;
+    }
+
+    /// Generate C code from the statement
+    pub fn generate(self: Stmt, allocator: std.mem.Allocator) []const u8 {
+        return switch (self) {
+            inline else => |n| n.generate(allocator),
+        };
     }
 };
 

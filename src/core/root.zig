@@ -1,4 +1,5 @@
-const fe = @import("fe/root.zig");
+const codegen = @import("codegen/root.zig");
+const frontend = @import("frontend/root.zig");
 const log = @import("log");
 const types = @import("types");
 const std = @import("std");
@@ -26,13 +27,19 @@ pub fn build(allocator: std.mem.Allocator, build_options: BuildOptions) !void {
 
     // Tokenize the source code
     log.debug("Tokenizing source code...", .{});
-    const tokens = try fe.tokenize(allocator, source_code[0..n]);
+    const tokens = try frontend.tokenize(allocator, source_code[0..n]);
     defer reportTokens(allocator, tokens, build_options.output_tokens);
 
     // Parse the tokens into an AST
     log.debug("Parsing tokens...", .{});
-    const ast = try fe.parse(allocator, tokens);
+    const ast = try frontend.parse(allocator, tokens);
     defer reportAST(allocator, ast.items, build_options.output_ast);
+
+    // TODO: static analysis on AST
+
+    // Hand off the AST to codegen
+    log.debug("Generating C from AST...", .{});
+    try codegen.generate(allocator, ast.items, std.mem.trimEnd(u8, build_options.path, ".nk"));
 }
 
 /// Print out the token stream

@@ -73,8 +73,8 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     for ([_][]const u8{
-        "src/core/fe/tokenizer_test.zig",
-        "src/core/fe/parser_test.zig",
+        "src/core/frontend/tokenizer_test.zig",
+        "src/core/frontend/parser_test.zig",
     }) |path| {
         const unit_tests = b.addTest(.{
             .root_module = b.createModule(.{
